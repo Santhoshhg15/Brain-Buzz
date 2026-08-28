@@ -139,7 +139,7 @@ export function QuestionForm({ initialValues, onSubmit, onCancel, isSubmitting }
               <button
                 type="button"
                 onClick={() => handleMarkCorrect(idx)}
-                className={\`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ease-[var(--ease-spring)] active:scale-90 \${opt.isCorrect ? 'border-[var(--color-success)] bg-[var(--color-success)] text-white shadow-sm' : 'border-[var(--color-border)] bg-[var(--color-surface)] text-transparent hover:border-[var(--color-success)]/50'}\`}
+                className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ease-[var(--ease-spring)] active:scale-90 \${opt.isCorrect ? 'border-[var(--color-success)] bg-[var(--color-success)] text-white shadow-sm' : 'border-[var(--color-border)] bg-[var(--color-surface)] text-transparent hover:border-[var(--color-success)]/50'}`}
                 title="Mark as correct"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -150,8 +150,8 @@ export function QuestionForm({ initialValues, onSubmit, onCancel, isSubmitting }
                 type="text"
                 value={opt.text}
                 onChange={(e) => handleOptionChange(idx, e.target.value)}
-                placeholder={\`Option \${idx + 1}\`}
-                className={\`flex-1 bg-[var(--color-surface)] border rounded-xl px-4 py-3 focus:outline-none focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/20 transition-all font-semibold \${opt.isCorrect ? 'border-[var(--color-success)] text-[var(--color-success)] bg-[var(--color-success-bg)]/30' : 'border-[var(--color-border)] text-[var(--color-text-primary)]'}\`}
+                placeholder={`Option \${idx + 1}`}
+                className={`flex-1 bg-[var(--color-surface)] border rounded-xl px-4 py-3 focus:outline-none focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/20 transition-all font-semibold \${opt.isCorrect ? 'border-[var(--color-success)] text-[var(--color-success)] bg-[var(--color-success-bg)]/30' : 'border-[var(--color-border)] text-[var(--color-text-primary)]'}`}
               />
             </div>
           ))}
