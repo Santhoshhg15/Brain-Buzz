@@ -6,19 +6,25 @@
     "dev": "tsx watch src/index.ts",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "test:smoke": "tsx src/test/smokeTest.ts"
+    "test:smoke": "tsx src/test/smokeTest.ts",
+    "create-instructor": "tsx prisma/createInstructor.ts"
   },
   "dependencies": {
+    "@paralleldrive/cuid2": "^3.3.0",
     "@prisma/client": "^5.0.0",
     "@quiz/shared-types": "*",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.3",
     "socket.io": "^4.7.2"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.13",
     "@types/express": "^4.17.17",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.5.9",
     "prisma": "^5.0.0",
     "socket.io-client": "^4.8.3",

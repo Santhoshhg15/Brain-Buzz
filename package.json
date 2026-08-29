@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w apps/host\" \"npm run dev -w apps/play\" \"npm run dev -w apps/display\"",
+    "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w apps/host\" \"npm run dev -w apps/play\" \"npm run dev -w apps/display\" \"npm run dev -w apps/landing\"",
     "db:migrate": "npm run db:migrate -w server",
     "db:studio": "npm run db:studio -w server"
   },

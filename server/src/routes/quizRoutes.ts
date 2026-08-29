@@ -1,5 +1,22 @@
 import { Router, Request, Response } from "express";
 import prisma from "../prisma";
+import { createId } from "@paralleldrive/cuid2";
+import { requireAuth } from "../auth/authMiddleware";
+
+function handleError(res: Response, contextMessage: string, error: any) {
+  console.error(contextMessage, error);
+  if (error && typeof error === 'object') {
+    if (error.code) console.error("Prisma Error Code:", error.code);
+    if (error.meta) console.error("Prisma Error Meta:", error.meta);
+    if (error.stack) console.error("Stack:", error.stack);
+  }
+  
+  const isDev = process.env.NODE_ENV !== "production";
+  res.status(500).json({
+    error: "Internal server error",
+    ...(isDev && { detail: error instanceof Error ? error.message : String(error) }),
+  });
+}
 
 const router = Router();
 
@@ -26,8 +43,7 @@ router.get("/quizzes", async (req: Request, res: Response): Promise<void> => {
 
     res.json(formattedQuizzes);
   } catch (error) {
-    console.error("Error fetching quizzes:", error);
-    res.status(500).json({ error: "Internal server error" });
+    handleError(res, "Error fetching quizzes:", error);
   }
 });
 
@@ -56,8 +72,7 @@ const getQuizFullHandler = async (req: Request, res: Response): Promise<void> =>
 
     res.json(quiz);
   } catch (error) {
-    console.error("Error fetching full quiz:", error);
-    res.status(500).json({ error: "Internal server error" });
+    handleError(res, "Error fetching full quiz:", error);
   }
 };
 
@@ -65,7 +80,7 @@ router.get("/quizzes/:id", getQuizFullHandler);
 router.get("/quizzes/:id/export", getQuizFullHandler);
 
 // 2. POST /api/quizzes
-router.post("/quizzes", async (req: Request, res: Response): Promise<void> => {
+router.post("/quizzes", requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     const { title } = req.body;
     
@@ -82,13 +97,12 @@ router.post("/quizzes", async (req: Request, res: Response): Promise<void> => {
 
     res.json(quiz);
   } catch (error) {
-    console.error("Error creating quiz:", error);
-    res.status(500).json({ error: "Internal server error" });
+    handleError(res, "Error creating quiz:", error);
   }
 });
 
 // 3. PATCH /api/quizzes/:id
-router.patch("/quizzes/:id", async (req: Request, res: Response): Promise<void> => {
+router.patch("/quizzes/:id", requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { title } = req.body;
@@ -111,13 +125,12 @@ router.patch("/quizzes/:id", async (req: Request, res: Response): Promise<void> 
 
     res.json(updatedQuiz);
   } catch (error) {
-    console.error("Error updating quiz:", error);
-    res.status(500).json({ error: "Internal server error" });
+    handleError(res, "Error updating quiz:", error);
   }
 });
 
 // 4. DELETE /api/quizzes/:id
-router.delete("/quizzes/:id", async (req: Request, res: Response): Promise<void> => {
+router.delete("/quizzes/:id", requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
 
@@ -192,13 +205,12 @@ router.delete("/quizzes/:id", async (req: Request, res: Response): Promise<void>
 
     res.json({ success: true, message: "Quiz deleted successfully" });
   } catch (error) {
-    console.error("Error deleting quiz:", error);
-    res.status(500).json({ error: "Internal server error" });
+    handleError(res, "Error deleting quiz:", error);
   }
 });
 
 // 5. POST /api/quizzes/:id/questions
-router.post("/quizzes/:id/questions", async (req: Request, res: Response): Promise<void> => {
+router.post("/quizzes/:id/questions", requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { text, durationSeconds, points, options } = req.body;
@@ -275,13 +287,147 @@ router.post("/quizzes/:id/questions", async (req: Request, res: Response): Promi
 
     res.json(createdQuestion);
   } catch (error) {
-    console.error("Error creating question:", error);
-    res.status(500).json({ error: "Internal server error" });
+    handleError(res, "Error creating question:", error);
+  }
+});
+
+// 5.5 POST /api/quizzes/:id/questions/bulk
+router.post("/quizzes/:id/questions/bulk", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { questions } = req.body;
+    
+    const payloadSize = JSON.stringify(req.body).length;
+    console.log(`[Bulk Import] Received ${questions?.length || 0} questions. Payload size: ${payloadSize} bytes`);
+
+    const quiz = await prisma.quiz.findUnique({ where: { id } });
+    if (!quiz) {
+      res.status(404).json({ error: "Quiz not found" });
+      return;
+    }
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+      res.status(400).json({ error: "Request body must contain a non-empty 'questions' array" });
+      return;
+    }
+
+    const validationErrors: Array<{ index: number, questionText: string, errors: string[] }> = [];
+
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      const errors: string[] = [];
+      const qText = typeof q.text === 'string' && q.text.trim() !== '' ? q.text.trim() : "(empty)";
+
+      if (typeof q.text !== 'string' || q.text.trim() === '') {
+        errors.push("Text must be a non-empty string");
+      }
+      if (!Number.isInteger(q.durationSeconds) || q.durationSeconds < 5 || q.durationSeconds > 120) {
+        errors.push("durationSeconds must be a positive integer between 5 and 120");
+      }
+      if (!Number.isInteger(q.points) || q.points <= 0) {
+        errors.push("points must be a positive integer");
+      }
+      if (!Array.isArray(q.options) || q.options.length !== 4) {
+        errors.push("options must be an array of exactly 4 items");
+      } else {
+        let correctCount = 0;
+        let hasEmptyOption = false;
+        for (const opt of q.options) {
+          if (typeof opt.text !== 'string' || opt.text.trim() === '') {
+            hasEmptyOption = true;
+          }
+          if (opt.isCorrect === true) {
+            correctCount++;
+          }
+        }
+        if (hasEmptyOption) {
+          errors.push("Every option must have non-empty text");
+        }
+        if (correctCount !== 1) {
+          errors.push("Exactly ONE option must have isCorrect: true");
+        }
+      }
+
+      if (errors.length > 0) {
+        validationErrors.push({
+          index: i,
+          questionText: qText,
+          errors
+        });
+      }
+    }
+
+    if (validationErrors.length > 0) {
+      res.status(400).json({ 
+        error: "Validation failed", 
+        details: validationErrors 
+      });
+      return;
+    }
+
+    const createdQuestions = await prisma.$transaction(async (tx) => {
+      const existingQuestions = await tx.question.findMany({
+        where: { quizId: id },
+        orderBy: { orderIndex: 'desc' },
+        take: 1
+      });
+      
+      let nextOrderIndex = existingQuestions.length > 0 ? existingQuestions[0].orderIndex + 1 : 0;
+      
+      const questionRows: any[] = [];
+      const optionRows: any[] = [];
+
+      for (const q of questions) {
+        const questionId = createId();
+        questionRows.push({
+          id: questionId,
+          quizId: id,
+          text: q.text.trim(),
+          durationSeconds: q.durationSeconds,
+          points: q.points,
+          orderIndex: nextOrderIndex,
+        });
+
+        q.options.forEach((opt: any, idx: number) => {
+          optionRows.push({
+            id: createId(),
+            questionId,
+            text: opt.text.trim(),
+            isCorrect: !!opt.isCorrect,
+            orderIndex: idx
+          });
+        });
+
+        nextOrderIndex++;
+      }
+
+      await tx.question.createMany({ data: questionRows });
+      await tx.option.createMany({ data: optionRows });
+
+      const inserted = await tx.question.findMany({
+        where: { id: { in: questionRows.map(q => q.id) } },
+        include: {
+          options: {
+            orderBy: { orderIndex: 'asc' }
+          }
+        },
+        orderBy: { orderIndex: 'asc' }
+      });
+
+      return inserted;
+    }, {
+      maxWait: 5000,
+      timeout: 10000
+    });
+
+    res.status(201).json({ created: createdQuestions.length, questions: createdQuestions });
+  } catch (error) {
+    handleError(res, "Error creating questions in bulk:", error);
   }
 });
 
 // 6. PATCH /api/questions/:id
-router.patch("/questions/:id", async (req: Request, res: Response): Promise<void> => {
+router.patch("/questions/:id", requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { text, durationSeconds, points } = req.body;
@@ -322,13 +468,12 @@ router.patch("/questions/:id", async (req: Request, res: Response): Promise<void
 
     res.json(updatedQuestion);
   } catch (error) {
-    console.error("Error updating question:", error);
-    res.status(500).json({ error: "Internal server error" });
+    handleError(res, "Error updating question:", error);
   }
 });
 
 // 7. DELETE /api/questions/:id
-router.delete("/questions/:id", async (req: Request, res: Response): Promise<void> => {
+router.delete("/questions/:id", requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     
@@ -374,13 +519,12 @@ router.delete("/questions/:id", async (req: Request, res: Response): Promise<voi
 
     res.json({ success: true, message: "Question deleted successfully" });
   } catch (error) {
-    console.error("Error deleting question:", error);
-    res.status(500).json({ error: "Internal server error" });
+    handleError(res, "Error deleting question:", error);
   }
 });
 
 // 8. PATCH /api/options/:id
-router.patch("/options/:id", async (req: Request, res: Response): Promise<void> => {
+router.patch("/options/:id", requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { text, isCorrect } = req.body;
@@ -420,8 +564,7 @@ router.patch("/options/:id", async (req: Request, res: Response): Promise<void> 
 
     res.json(updatedOption);
   } catch (error) {
-    console.error("Error updating option:", error);
-    res.status(500).json({ error: "Internal server error" });
+    handleError(res, "Error updating option:", error);
   }
 });
 

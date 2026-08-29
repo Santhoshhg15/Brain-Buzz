@@ -1,7 +1,7 @@
 export interface ParticipantData {
   id: string;
   name: string;
-  score: string | number; // sometimes we use rank
+  score: string | number;
   rank?: number;
 }
 
@@ -19,9 +19,35 @@ export interface OptionCount {
   [optionId: string]: number;
 }
 
+export interface QuestionRevealPayload {
+  questionId: string;
+  correctOptionId: string;
+  optionCounts: OptionCount;
+}
+
+export interface RoomRejoinPayload {
+  roomCode: string;
+  participantId: string;
+}
+
+export type RejoinScreenState = "LOBBY" | "QUESTION" | "REVEAL" | "ENDED";
+
+export interface RoomRejoinResponse {
+  success: boolean;
+  error?: string;
+  screenState?: RejoinScreenState;
+  quizTitle?: string;
+  currentQuestion?: QuestionData;
+  hasAnsweredCurrentQuestion?: boolean;
+  revealData?: QuestionRevealPayload;
+  leaderboard?: ParticipantData[];
+  myScore?: number;
+}
+
 export interface ClientToServerEvents {
-  "room:create": (payload: { quizId: string }, callback: (res: { sessionId: string; roomCode: string }) => void) => void;
+  "room:create": (payload: { quizId: string }, callback: (res: { sessionId?: string; roomCode?: string; error?: string }) => void) => void;
   "room:join": (payload: { roomCode: string; studentName: string }, callback: (res: { participantId: string; sessionId: string; quizTitle: string } | { error: string }) => void) => void;
+  "room:rejoin": (payload: RoomRejoinPayload, callback: (res: RoomRejoinResponse) => void) => void;
   "session:start": (payload: { sessionId: string }) => void;
   "answer:submit": (payload: { sessionId: string; participantId: string; questionId: string; optionId: string }) => void;
   "question:next": (payload: { sessionId: string }) => void;
@@ -31,7 +57,7 @@ export interface ClientToServerEvents {
 export interface ServerToClientEvents {
   "room:participant-joined": (payload: ParticipantData[]) => void;
   "question:broadcast": (payload: QuestionData) => void;
-  "question:reveal": (payload: { questionId: string; correctOptionId: string; optionCounts: OptionCount }) => void;
+  "question:reveal": (payload: QuestionRevealPayload) => void;
   "leaderboard:update": (payload: ParticipantData[]) => void;
   "session:ended": (payload: ParticipantData[]) => void;
 }

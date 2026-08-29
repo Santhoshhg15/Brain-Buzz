@@ -16,6 +16,8 @@ export interface LeaderboardEntry {
 interface PlayStore {
   socket: AppSocket | null;
   screen: ScreenState;
+  connectionStatus: "connected" | "reconnecting";
+  isRejoining: boolean;
   
   // Input fields
   roomCode: string;
@@ -38,19 +40,23 @@ interface PlayStore {
   // Leaderboard
   leaderboard: LeaderboardEntry[] | null;
   myRank: number | null;
+  myScore: number | null;
   
   // Actions
   initSocket: () => void;
   joinRoom: () => void;
   submitAnswer: (optionId: string) => void;
   resetGame: () => void;
+  attemptRejoin: () => void;
 }
 
-const SERVER_URL = "http://localhost:4000";
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:4000";
 
 export const usePlayStore = create<PlayStore>((set, get) => ({
   socket: null,
   screen: "JOIN",
+  connectionStatus: "connected",
+  isRejoining: !!localStorage.getItem("brainbuzz_play_session"),
   
   roomCode: "",
   studentName: "",
@@ -69,12 +75,22 @@ export const usePlayStore = create<PlayStore>((set, get) => ({
   
   leaderboard: null,
   myRank: null,
+  myScore: null,
   
   initSocket: () => {
     const currentSocket = get().socket;
     if (currentSocket) return;
 
     const socket: AppSocket = io(SERVER_URL);
+    
+    socket.on("connect", () => {
+      set({ connectionStatus: "connected" });
+      get().attemptRejoin();
+    });
+
+    socket.on("disconnect", () => {
+      set({ connectionStatus: "reconnecting" });
+    });
     
     socket.on("question:broadcast", (payload) => {
       set({
@@ -111,10 +127,13 @@ export const usePlayStore = create<PlayStore>((set, get) => ({
       const { participantId } = get();
       const me = (payload as LeaderboardEntry[]).find(e => e.id === participantId);
       
+      localStorage.removeItem("brainbuzz_play_session");
+
       set({
         screen: "ENDED",
         leaderboard: payload as LeaderboardEntry[],
-        myRank: me ? me.rank : null
+        myRank: me ? me.rank : null,
+        myScore: me ? me.score : null
       });
     });
 
@@ -131,6 +150,12 @@ export const usePlayStore = create<PlayStore>((set, get) => ({
       if ("error" in res) {
         set({ joinError: res.error });
       } else {
+        localStorage.setItem("brainbuzz_play_session", JSON.stringify({
+          roomCode,
+          participantId: res.participantId,
+          sessionId: res.sessionId
+        }));
+        
         set({
           screen: "WAITING_ROOM",
           participantId: res.participantId,
@@ -161,6 +186,7 @@ export const usePlayStore = create<PlayStore>((set, get) => ({
   },
   
   resetGame: () => {
+    localStorage.removeItem("brainbuzz_play_session");
     set({
       screen: "JOIN",
       roomCode: "",
@@ -173,7 +199,63 @@ export const usePlayStore = create<PlayStore>((set, get) => ({
       revealData: null,
       myLastAnswerCorrect: null,
       leaderboard: null,
-      myRank: null
+      myRank: null,
+      myScore: null
     });
+  },
+  
+  attemptRejoin: () => {
+    const stored = localStorage.getItem("brainbuzz_play_session");
+    if (!stored) {
+      set({ isRejoining: false });
+      return;
+    }
+    
+    try {
+      const { roomCode, participantId, sessionId } = JSON.parse(stored);
+      const { socket } = get();
+      if (!socket) return;
+      
+      socket.emit("room:rejoin", { roomCode, participantId }, (res) => {
+        if (!res.success) {
+          localStorage.removeItem("brainbuzz_play_session");
+          set({ isRejoining: false, screen: "JOIN" });
+          return;
+        }
+        
+        const updates: Partial<PlayStore> = {
+          isRejoining: false,
+          roomCode,
+          participantId,
+          sessionId,
+          quizTitle: res.quizTitle || get().quizTitle,
+          myScore: res.myScore ?? get().myScore,
+        };
+        
+        if (res.screenState === "LOBBY") {
+          updates.screen = "WAITING_ROOM";
+        } else if (res.screenState === "QUESTION") {
+          updates.currentQuestion = res.currentQuestion || null;
+          updates.screen = res.hasAnsweredCurrentQuestion ? "ANSWERED" : "QUESTION";
+          updates.selectedOptionId = res.hasAnsweredCurrentQuestion ? "REJOIN_PLACEHOLDER" : null;
+        } else if (res.screenState === "REVEAL") {
+          updates.screen = "REVEAL";
+          updates.revealData = res.revealData || null;
+          updates.leaderboard = res.leaderboard || null;
+          const me = updates.leaderboard?.find(e => e.id === participantId);
+          updates.myRank = me ? me.rank : null;
+        } else if (res.screenState === "ENDED") {
+          updates.screen = "ENDED";
+          updates.leaderboard = res.leaderboard || null;
+          const me = updates.leaderboard?.find(e => e.id === participantId);
+          updates.myRank = me ? me.rank : null;
+        }
+        
+        set(updates);
+      });
+    } catch (e) {
+      localStorage.removeItem("brainbuzz_play_session");
+      set({ isRejoining: false });
+    }
   }
 }));

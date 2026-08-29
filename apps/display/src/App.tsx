@@ -5,6 +5,7 @@ import { LobbyDisplayScreen } from "./screens/LobbyDisplayScreen";
 import { QuestionDisplayScreen } from "./screens/QuestionDisplayScreen";
 import { RevealDisplayScreen } from "./screens/RevealDisplayScreen";
 import { EndedDisplayScreen } from "./screens/EndedDisplayScreen";
+import { AmbientBackground } from "./components/AmbientBackground";
 
 function App() {
   const initSocket = useDisplayStore(state => state.initSocket);
@@ -15,7 +16,8 @@ function App() {
   }, [initSocket]);
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-[var(--color-bg)] font-body flex flex-col text-[var(--color-text-primary)] w-full overflow-hidden">
+    <div className="min-h-screen min-h-[100dvh] font-body flex flex-col text-[var(--color-text-primary)] w-full overflow-hidden">
+      <AmbientBackground />
       {/* 
         Display App purposefully uses the full viewport. 
         It has no persistent header because it relies on the specific screens 

@@ -6,6 +6,7 @@ export function SelectQuizScreen() {
   const fetchQuizzes = useHostStore(state => state.fetchQuizzes);
   const availableQuizzes = useHostStore(state => state.availableQuizzes);
   const createRoom = useHostStore(state => state.createRoom);
+  const sessionError = useHostStore(state => state.sessionError);
 
   useEffect(() => {
     fetchQuizzes();
@@ -22,6 +23,12 @@ export function SelectQuizScreen() {
         </Link>
       </div>
       <h2 className="text-3xl font-heading font-bold mb-8 text-[var(--color-text-primary)] mt-12 sm:mt-0">Select a Quiz to Host</h2>
+      
+      {sessionError && (
+        <div className="bg-[var(--color-error-bg)]/80 text-[var(--color-error)] border border-[var(--color-error)]/25 text-xs font-bold p-3.5 rounded-xl text-center mb-6 max-w-md w-full animate-[screenEnter_200ms_var(--ease-out-expo)]">
+          {sessionError}
+        </div>
+      )}
       
       {availableQuizzes.length === 0 ? (
         <div className="flex gap-6 w-full max-w-5xl">

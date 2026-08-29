@@ -1,6 +1,7 @@
 import { io, Socket } from "socket.io-client";
 import { ClientToServerEvents, ServerToClientEvents, QuestionData } from "@quiz/shared-types";
 import prisma from "../prisma";
+import { generateToken } from "../auth/authUtils";
 
 const SERVER_URL = "http://localhost:4000";
 
@@ -29,7 +30,12 @@ async function main() {
 
   type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
-  const hostSocket: AppSocket = io(SERVER_URL);
+  const mockToken = generateToken("mock-instructor-id", "test@example.com");
+  const hostSocket: AppSocket = io(SERVER_URL, {
+    auth: {
+      token: mockToken
+    }
+  });
   const aliceSocket: AppSocket = io(SERVER_URL);
   const bobSocket: AppSocket = io(SERVER_URL);
 
@@ -98,8 +104,12 @@ async function main() {
   hostSocket.on("connect", () => {
     console.log(`[HOST] Connected to server (${hostSocket.id}). Requesting room creation...`);
     hostSocket.emit("room:create", { quizId: quiz.id }, async (res) => {
-      hostSessionId = res.sessionId;
-      hostRoomCode = res.roomCode;
+      if (res.error) {
+        console.error(`[HOST] Error creating room: ${res.error}`);
+        process.exit(1);
+      }
+      hostSessionId = res.sessionId!;
+      hostRoomCode = res.roomCode!;
       console.log(`[HOST] Room created! Room Code: ${hostRoomCode}, Session ID: ${hostSessionId}`);
 
       // Now connect students

@@ -41,9 +41,10 @@
 }
 
 body {
-  background-color: var(--color-bg);
+  background: radial-gradient(ellipse 80% 60% at 20% 0%, var(--color-surface) 0%, var(--color-bg) 60%);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
+  min-height: 100vh;
 }
 
 /* Premium Animation Keyframes */

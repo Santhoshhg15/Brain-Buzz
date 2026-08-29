@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAdminStore } from "../../store/adminStore";
 import type { QuestionDetail } from "../../store/adminStore";
 import { QuestionForm } from "./QuestionForm";
 import type { QuestionFormData } from "./QuestionForm";
+import { Check } from "lucide-react";
 
 interface QuestionCardProps {
   question: QuestionDetail;
@@ -18,6 +19,89 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
   const deleteQuestion = useAdminStore((state) => state.deleteQuestion);
   const loading = useAdminStore((state) => state.loading);
   const clearFormError = useAdminStore((state) => state.clearFormError);
+
+  const [localDuration, setLocalDuration] = useState(question.durationSeconds.toString());
+  const [localPoints, setLocalPoints] = useState(question.points.toString());
+  
+  const [durationError, setDurationError] = useState(false);
+  const [pointsError, setPointsError] = useState(false);
+  
+  const [durationSuccess, setDurationSuccess] = useState(false);
+  const [pointsSuccess, setPointsSuccess] = useState(false);
+
+  useEffect(() => {
+    setLocalDuration(question.durationSeconds.toString());
+    setDurationError(false);
+  }, [question.durationSeconds]);
+
+  useEffect(() => {
+    setLocalPoints(question.points.toString());
+    setPointsError(false);
+  }, [question.points]);
+
+  const handleDurationSave = async (valStr: string) => {
+    const val = parseInt(valStr, 10);
+    if (isNaN(val) || val < 5 || val > 120) {
+      setDurationError(true);
+      return;
+    }
+    setDurationError(false);
+    if (val === question.durationSeconds) return;
+
+    try {
+      await updateQuestion(question.id, { durationSeconds: val });
+      setDurationSuccess(true);
+      setTimeout(() => setDurationSuccess(false), 1500);
+    } catch (err) {
+      setDurationError(true);
+      setTimeout(() => setDurationError(false), 1500);
+    }
+  };
+
+  const handlePointsSave = async (valStr: string) => {
+    const val = parseInt(valStr, 10);
+    if (isNaN(val) || val <= 0) {
+      setPointsError(true);
+      return;
+    }
+    setPointsError(false);
+    if (val === question.points) return;
+
+    try {
+      await updateQuestion(question.id, { points: val });
+      setPointsSuccess(true);
+      setTimeout(() => setPointsSuccess(false), 1500);
+    } catch (err) {
+      setPointsError(true);
+      setTimeout(() => setPointsError(false), 1500);
+    }
+  };
+
+  const handleDurationBlur = () => {
+    const val = parseInt(localDuration, 10);
+    if (isNaN(val) || val < 5 || val > 120) {
+      setLocalDuration(question.durationSeconds.toString());
+      setDurationError(false);
+    } else {
+      handleDurationSave(localDuration);
+    }
+  };
+
+  const handlePointsBlur = () => {
+    const val = parseInt(localPoints, 10);
+    if (isNaN(val) || val <= 0) {
+      setLocalPoints(question.points.toString());
+      setPointsError(false);
+    } else {
+      handlePointsSave(localPoints);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.currentTarget.blur();
+    }
+  };
 
   const handleSave = async (data: QuestionFormData) => {
     // We update question details
@@ -86,13 +170,64 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
           </div>
           <div>
             <h4 className="text-lg font-bold text-[var(--color-text-primary)] whitespace-pre-wrap">{question.text}</h4>
-            <div className="flex gap-3 mt-2 text-sm font-semibold text-[var(--color-text-secondary)]">
-              <span className="bg-[var(--color-surface)] px-2 py-1 rounded-md border border-[var(--color-border)]">
-                ⏱ {question.durationSeconds}s
-              </span>
-              <span className="bg-[var(--color-surface)] px-2 py-1 rounded-md border border-[var(--color-border)]">
-                🏆 {question.points} pts
-              </span>
+            <div className="flex flex-wrap items-center gap-6 mt-3 text-sm font-semibold text-[var(--color-text-secondary)]">
+              {/* Duration Input */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[var(--color-text-secondary)] font-medium">⏱ Duration:</span>
+                <div className="flex items-center gap-1.5 relative">
+                  <input
+                    type="number"
+                    value={localDuration}
+                    onChange={(e) => {
+                      setLocalDuration(e.target.value);
+                      const val = parseInt(e.target.value, 10);
+                      setDurationError(isNaN(val) || val < 5 || val > 120);
+                    }}
+                    onBlur={handleDurationBlur}
+                    onKeyDown={handleKeyDown}
+                    className={`w-16 px-2 py-1 text-center font-mono text-sm bg-[var(--color-surface)] border rounded-md outline-none transition-all ${
+                      durationError 
+                        ? 'border-[var(--color-error)] ring-2 ring-[var(--color-error)]/20 text-[var(--color-error)]' 
+                        : 'border-[var(--color-border)] focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/20 text-[var(--color-text-primary)]'
+                    }`}
+                  />
+                  <span className="text-xs text-[var(--color-text-secondary)] font-semibold">sec</span>
+                  {durationSuccess && (
+                    <span className="text-[var(--color-success)] animate-[fadeScaleIn_200ms_ease-out] shrink-0">
+                      <Check className="w-4 h-4" />
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Points Input */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[var(--color-text-secondary)] font-medium">🏆 Points:</span>
+                <div className="flex items-center gap-1.5 relative">
+                  <input
+                    type="number"
+                    value={localPoints}
+                    onChange={(e) => {
+                      setLocalPoints(e.target.value);
+                      const val = parseInt(e.target.value, 10);
+                      setPointsError(isNaN(val) || val <= 0);
+                    }}
+                    onBlur={handlePointsBlur}
+                    onKeyDown={handleKeyDown}
+                    className={`w-20 px-2 py-1 text-center font-mono text-sm bg-[var(--color-surface)] border rounded-md outline-none transition-all ${
+                      pointsError 
+                        ? 'border-[var(--color-error)] ring-2 ring-[var(--color-error)]/20 text-[var(--color-error)]' 
+                        : 'border-[var(--color-border)] focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/20 text-[var(--color-text-primary)]'
+                    }`}
+                  />
+                  <span className="text-xs text-[var(--color-text-secondary)] font-semibold">pts</span>
+                  {pointsSuccess && (
+                    <span className="text-[var(--color-success)] animate-[fadeScaleIn_200ms_ease-out] shrink-0">
+                      <Check className="w-4 h-4" />
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { io, Socket } from "socket.io-client";
 import type { ClientToServerEvents, ServerToClientEvents, QuestionData } from "@quiz/shared-types";
+import { authFetch } from "../auth/apiClient";
+import { useAuthStore } from "../auth/authStore";
 
 type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -37,6 +39,7 @@ interface HostStore {
   currentQuestion: QuestionData | null;
   revealData: { correctOptionId: string; optionCounts: Record<string, number> } | null;
   leaderboard: LeaderboardEntry[];
+  sessionError: string | null;
   
   // Actions
   initSocket: () => void;
@@ -46,9 +49,10 @@ interface HostStore {
   nextQuestion: () => void;
   endSession: () => void;
   resetSession: () => void;
+  disconnectSocket: () => void;
 }
 
-const SERVER_URL = "http://localhost:4000";
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:4000";
 
 export const useHostStore = create<HostStore>((set, get) => ({
   socket: null,
@@ -61,12 +65,24 @@ export const useHostStore = create<HostStore>((set, get) => ({
   currentQuestion: null,
   revealData: null,
   leaderboard: [],
+  sessionError: null,
 
   initSocket: () => {
-    const currentSocket = get().socket;
-    if (currentSocket) return;
+    const token = useAuthStore.getState().token;
+    if (!token) {
+      console.warn("[hostStore] Cannot initialize socket: auth token is missing.");
+      return;
+    }
 
-    const socket: AppSocket = io(SERVER_URL);
+    const currentSocket = get().socket;
+    if (currentSocket) {
+      console.log("[hostStore] Disconnecting existing socket before re-connecting...");
+      currentSocket.disconnect();
+    }
+
+    const socket: AppSocket = io(SERVER_URL, {
+      auth: { token }
+    });
     
     socket.on("room:participant-joined", (payload) => {
       set({ participants: payload as unknown as Participant[] });
@@ -103,7 +119,7 @@ export const useHostStore = create<HostStore>((set, get) => ({
 
   fetchQuizzes: async () => {
     try {
-      const res = await fetch(`${SERVER_URL}/api/quizzes`);
+      const res = await authFetch(`${SERVER_URL}/api/quizzes`);
       const data = await res.json();
       set({ availableQuizzes: data });
     } catch (e) {
@@ -116,12 +132,17 @@ export const useHostStore = create<HostStore>((set, get) => ({
     if (!socket) return;
     
     socket.emit("room:create", { quizId }, (res) => {
+      if (res.error) {
+        set({ sessionError: res.error });
+        return;
+      }
       set({
         selectedQuizId: quizId,
-        sessionId: res.sessionId,
-        roomCode: res.roomCode,
+        sessionId: res.sessionId || null,
+        roomCode: res.roomCode || null,
         screen: "LOBBY",
-        participants: []
+        participants: [],
+        sessionError: null
       });
     });
   },
@@ -160,7 +181,16 @@ export const useHostStore = create<HostStore>((set, get) => ({
       participants: [],
       currentQuestion: null,
       revealData: null,
-      leaderboard: []
+      leaderboard: [],
+      sessionError: null
     });
+  },
+
+  disconnectSocket: () => {
+    const { socket } = get();
+    if (socket) {
+      socket.disconnect();
+      set({ socket: null });
+    }
   }
 }));

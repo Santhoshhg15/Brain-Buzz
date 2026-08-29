@@ -1,5 +1,5 @@
-import { useEffect } from "react";
 import { useHostStore } from "./store/hostStore";
+import { useAuthStore } from "./auth/authStore";
 import { SelectQuizScreen } from "./screens/SelectQuizScreen";
 import { LobbyScreen } from "./screens/LobbyScreen";
 import { LiveQuestionScreen } from "./screens/LiveQuestionScreen";
@@ -7,16 +7,13 @@ import { RevealScreen } from "./screens/RevealScreen";
 import { EndedScreen } from "./screens/EndedScreen";
 
 export function SessionFlow() {
-  const initSocket = useHostStore(state => state.initSocket);
   const screen = useHostStore(state => state.screen);
   const roomCode = useHostStore(state => state.roomCode);
-
-  useEffect(() => {
-    initSocket();
-  }, [initSocket]);
+  const instructorName = useAuthStore(state => state.instructorName);
+  const logout = useAuthStore(state => state.logout);
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-[var(--color-bg)] font-body flex flex-col">
+    <div className="min-h-screen min-h-[100dvh] font-body flex flex-col">
       {/* Header */}
       <header className="bg-[var(--color-surface-elevated)]/80 backdrop-blur-md shadow-sm border-b border-[var(--color-border)]/50 py-4 px-4 sm:px-8 flex flex-col sm:flex-row justify-between items-center gap-4 sticky top-0 z-50">
         <div className="flex items-center gap-3">
@@ -26,18 +23,34 @@ export function SessionFlow() {
             </svg>
           </div>
           <h1 className="text-xl font-heading font-bold text-[var(--color-text-primary)] tracking-tight">
-            Java Quiz <span className="text-[var(--color-accent)] font-black">HOST</span>
+            BrainBuzz <span className="text-[var(--color-accent)] font-black">HOST</span>
           </h1>
         </div>
         
-        {roomCode && screen !== "ENDED" && screen !== "SELECT_QUIZ" && (
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">Room Code</span>
-            <span className="bg-[var(--color-surface)] text-[var(--color-accent)] font-mono font-black text-2xl px-4 py-1 rounded-xl tracking-widest border border-[var(--color-border)]">
-              {roomCode}
-            </span>
-          </div>
-        )}
+        <div className="flex items-center gap-6">
+          {roomCode && screen !== "ENDED" && screen !== "SELECT_QUIZ" && (
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">Room Code</span>
+              <span className="bg-[var(--color-surface)] text-[var(--color-accent)] font-mono font-black text-2xl px-4 py-1 rounded-xl tracking-widest border border-[var(--color-border)]">
+                {roomCode}
+              </span>
+            </div>
+          )}
+
+          {instructorName && (
+            <div className="flex items-center gap-3 border-l border-[var(--color-border)]/50 pl-6">
+              <span className="text-xs font-semibold text-[var(--color-text-secondary)] hidden md:inline">
+                Signed in as <span className="text-[var(--color-text-primary)] font-bold">{instructorName}</span>
+              </span>
+              <button
+                onClick={logout}
+                className="text-xs font-bold px-3 py-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-error)]/40 hover:bg-[var(--color-error-bg)]/30 hover:text-[var(--color-error)] text-[var(--color-text-secondary)] rounded-xl transition-all duration-200 cursor-pointer active:scale-[0.97]"
+              >
+                Log out
+              </button>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* Main Content Area */}

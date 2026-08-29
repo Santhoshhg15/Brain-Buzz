@@ -1,4 +1,4 @@
-import { ParticipantData } from "@quiz/shared-types";
+import { ParticipantData, QuestionData, QuestionRevealPayload } from "@quiz/shared-types";
 
 export interface SessionParticipant {
   id: string;
@@ -23,6 +23,8 @@ export interface SessionState {
   currentQuestionAnswers: Map<string, SessionAnswer>;
   questionStartTimeMs: number;
   questionTimer: NodeJS.Timeout | null;
+  hasRevealedCurrentQuestion: boolean;
+  lastRevealData?: QuestionRevealPayload;
 }
 
 const sessionsByRoomCode = new Map<string, SessionState>();
@@ -51,6 +53,7 @@ export function createSession(sessionId: string, quizId: string, roomCode: strin
     currentQuestionAnswers: new Map(),
     questionStartTimeMs: 0,
     questionTimer: null,
+    hasRevealedCurrentQuestion: false,
   };
   sessionsByRoomCode.set(roomCode, session);
   roomCodeBySessionId.set(sessionId, roomCode);
@@ -79,6 +82,57 @@ export function addParticipant(roomCode: string, participantId: string, name: st
       score: 0,
     });
   }
+}
+
+export function findParticipant(roomCode: string, participantId: string): SessionParticipant | undefined {
+  const session = sessionsByRoomCode.get(roomCode);
+  if (session) {
+    return session.participants.get(participantId);
+  }
+  return undefined;
+}
+
+export function updateParticipantSocketId(roomCode: string, participantId: string, newSocketId: string): void {
+  const session = sessionsByRoomCode.get(roomCode);
+  if (session) {
+    const participant = session.participants.get(participantId);
+    if (participant) {
+      participant.socketId = newSocketId;
+    }
+  }
+}
+
+export function hasAnswered(roomCode: string, participantId: string): boolean {
+  const session = sessionsByRoomCode.get(roomCode);
+  if (session) {
+    return session.currentQuestionAnswers.has(participantId);
+  }
+  return false;
+}
+
+export function getCurrentQuestionForRejoin(session: SessionState): QuestionData | undefined {
+  if (session.currentQuestionIndex >= 0 && session.currentQuestionIndex < session.questions.length) {
+    const question = session.questions[session.currentQuestionIndex];
+    return {
+      id: question.id,
+      index: session.currentQuestionIndex,
+      total: session.questions.length,
+      text: question.text,
+      options: question.options.map((o: any) => ({
+        id: o.id,
+        text: o.text,
+        orderIndex: o.orderIndex,
+      })),
+      durationSeconds: question.durationSeconds,
+      serverStartTime: session.questionStartTimeMs,
+    };
+  }
+  return undefined;
+}
+
+export function getLastRevealData(roomCode: string): QuestionRevealPayload | undefined {
+  const session = sessionsByRoomCode.get(roomCode);
+  return session?.lastRevealData;
 }
 
 export function recordAnswer(roomCode: string, participantId: string, optionId: string): void {

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { authFetch } from "../auth/apiClient";
 
 export interface QuizDetail {
   id: string;
@@ -38,13 +39,14 @@ export interface AdminStore {
   updateQuizTitle: (quizId: string, title: string) => Promise<void>;
   deleteQuiz: (quizId: string) => Promise<boolean>;
   addQuestion: (quizId: string, questionData: any) => Promise<void>;
+  bulkImportQuestions: (quizId: string, questions: any[]) => Promise<{ success: boolean; count?: number; error?: string; details?: any[] }>;
   updateQuestion: (questionId: string, updates: any) => Promise<void>;
   deleteQuestion: (questionId: string) => Promise<void>;
   updateOption: (optionId: string, updates: any) => Promise<void>;
   clearFormError: () => void;
 }
 
-const API_BASE = "http://localhost:4000/api";
+const API_BASE = (import.meta.env.VITE_SERVER_URL || "http://localhost:4000") + "/api";
 
 export const useAdminStore = create<AdminStore>((set, get) => ({
   quizzes: [],
@@ -57,7 +59,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   fetchQuizzes: async () => {
     set({ loading: true, formError: null });
     try {
-      const res = await fetch(`${API_BASE}/quizzes`);
+      const res = await authFetch(`${API_BASE}/quizzes`);
       if (!res.ok) throw new Error("Failed to fetch quizzes");
       const data = await res.json();
       set({ quizzes: data, loading: false });
@@ -69,7 +71,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   fetchQuizDetail: async (quizId) => {
     set({ loading: true, formError: null });
     try {
-      const res = await fetch(`${API_BASE}/quizzes/${quizId}`);
+      const res = await authFetch(`${API_BASE}/quizzes/${quizId}`);
       if (!res.ok) throw new Error("Failed to fetch quiz details");
       const data = await res.json();
       set({ currentQuiz: data, loading: false });
@@ -81,7 +83,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   createQuiz: async (title) => {
     set({ loading: true, formError: null });
     try {
-      const res = await fetch(`${API_BASE}/quizzes`, {
+      const res = await authFetch(`${API_BASE}/quizzes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title }),
@@ -100,7 +102,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   updateQuizTitle: async (quizId, title) => {
     set({ loading: true, formError: null });
     try {
-      const res = await fetch(`${API_BASE}/quizzes/${quizId}`, {
+      const res = await authFetch(`${API_BASE}/quizzes/${quizId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title }),
@@ -117,7 +119,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   deleteQuiz: async (quizId) => {
     set({ loading: true, formError: null });
     try {
-      const res = await fetch(`${API_BASE}/quizzes/${quizId}`, {
+      const res = await authFetch(`${API_BASE}/quizzes/${quizId}`, {
         method: "DELETE",
       });
       const data = await res.json();
@@ -134,7 +136,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   addQuestion: async (quizId, questionData) => {
     set({ loading: true, formError: null });
     try {
-      const res = await fetch(`${API_BASE}/quizzes/${quizId}/questions`, {
+      const res = await authFetch(`${API_BASE}/quizzes/${quizId}/questions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(questionData),
@@ -149,10 +151,38 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     }
   },
 
+  bulkImportQuestions: async (quizId, questions) => {
+    set({ loading: true, formError: null });
+    try {
+      const res = await authFetch(`${API_BASE}/quizzes/${quizId}/questions/bulk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questions }),
+      });
+      const data = await res.json();
+      
+      if (!res.ok) {
+        set({ loading: false });
+        if (res.status === 400 && data.details) {
+          // Structured validation error
+          return { success: false, error: data.error, details: data.details };
+        }
+        return { success: false, error: data.error || "Failed to import questions" };
+      }
+      
+      await get().fetchQuizDetail(quizId);
+      set({ loading: false });
+      return { success: true, count: data.created };
+    } catch (e: any) {
+      set({ loading: false });
+      return { success: false, error: e.message || "Network error" };
+    }
+  },
+
   updateQuestion: async (questionId, updates) => {
     set({ loading: true, formError: null });
     try {
-      const res = await fetch(`${API_BASE}/questions/${questionId}`, {
+      const res = await authFetch(`${API_BASE}/questions/${questionId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
@@ -173,7 +203,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   deleteQuestion: async (questionId) => {
     set({ loading: true, formError: null });
     try {
-      const res = await fetch(`${API_BASE}/questions/${questionId}`, {
+      const res = await authFetch(`${API_BASE}/questions/${questionId}`, {
         method: "DELETE",
       });
       const data = await res.json();
@@ -192,7 +222,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   updateOption: async (optionId, updates) => {
     set({ loading: true, formError: null });
     try {
-      const res = await fetch(`${API_BASE}/options/${optionId}`, {
+      const res = await authFetch(`${API_BASE}/options/${optionId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),

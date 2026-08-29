@@ -1,15 +1,17 @@
 import { Server, Socket } from "socket.io";
-import { ClientToServerEvents, ServerToClientEvents, OptionCount } from "@quiz/shared-types";
-import prisma from "../prisma";
+import { PrismaClient } from "@prisma/client";
+import { ClientToServerEvents, ServerToClientEvents, OptionCount, RoomRejoinResponse, RejoinScreenState } from "@quiz/shared-types";
 import * as sessionManager from "../session/sessionManager";
+import { verifyToken } from "../auth/authUtils";
+
+const prisma = new PrismaClient();
 
 export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerToClientEvents>) {
-  // Shared internal function to reveal current question
+  
   async function revealCurrentQuestion(roomCode: string) {
     const session = sessionManager.getSession(roomCode);
-    if (!session || session.status !== "LIVE" || session.currentQuestionIndex < 0) return;
-    
-    // Clear timer
+    if (!session || session.status !== "LIVE") return;
+
     if (session.questionTimer) {
       clearTimeout(session.questionTimer);
       session.questionTimer = null;
@@ -17,15 +19,16 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
 
     const question = session.questions[session.currentQuestionIndex];
     const correctOption = question.options.find((o: any) => o.isCorrect);
-    const correctOptionId = correctOption?.id || "";
+    const correctOptionId = correctOption ? correctOption.id : "";
 
     const optionCounts: OptionCount = {};
     for (const option of question.options) {
       optionCounts[option.id] = 0;
     }
 
-    // Process all submitted answers
-    for (const [participantId, answer] of session.currentQuestionAnswers.entries()) {
+    const answers = Array.from(session.currentQuestionAnswers.entries());
+    
+    for (const [participantId, answer] of answers) {
       if (optionCounts[answer.optionId] !== undefined) {
         optionCounts[answer.optionId]++;
       } else {
@@ -54,11 +57,17 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
 
     console.log(`Question revealed for room ${roomCode}. Correct option: ${correctOptionId}`);
 
-    io.to(roomCode).emit("question:reveal", {
+    const revealData = {
       questionId: question.id,
       correctOptionId,
       optionCounts,
-    });
+    };
+
+    // Store for rejoining clients
+    session.hasRevealedCurrentQuestion = true;
+    session.lastRevealData = revealData;
+
+    io.to(roomCode).emit("question:reveal", revealData);
 
     // Send updated leaderboard
     const leaderboard = sessionManager.getLeaderboard(roomCode);
@@ -93,6 +102,8 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
     const question = session.questions[session.currentQuestionIndex];
     session.currentQuestionAnswers.clear();
     session.questionStartTimeMs = Date.now();
+    session.hasRevealedCurrentQuestion = false; // Reset for new question
+    session.lastRevealData = undefined;
 
     console.log(`Broadcasting question ${session.currentQuestionIndex + 1} for room ${roomCode}`);
 
@@ -117,9 +128,23 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
 
   io.on("connection", (socket: Socket<ClientToServerEvents, ServerToClientEvents>) => {
     console.log(`Socket connected: ${socket.id}`);
+    
+    // Tracking for disconnect logs
+    let currentParticipantId: string | undefined;
+    let currentRoomCode: string | undefined;
 
     socket.on("room:create", async (payload, callback) => {
       try {
+        const token = socket.handshake.auth?.token;
+        if (!token) {
+          return callback({ error: "Authentication required" });
+        }
+        const decoded = verifyToken(token);
+        if (!decoded) {
+          return callback({ error: "Invalid or expired session" });
+        }
+        socket.data.instructorId = decoded.instructorId;
+
         const quiz = await prisma.quiz.findUnique({
           where: { id: payload.quizId },
           include: {
@@ -155,7 +180,6 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
         callback({ sessionId: dbSession.id, roomCode });
       } catch (error: any) {
         console.error(error);
-        // Depending on socket.io versions, error callbacks can be handled differently.
       }
     });
 
@@ -181,9 +205,11 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
         sessionManager.addParticipant(payload.roomCode, participant.id, payload.studentName, socket.id);
         socket.join(payload.roomCode);
 
+        currentParticipantId = participant.id;
+        currentRoomCode = payload.roomCode;
+
         console.log(`Participant ${payload.studentName} joined room ${payload.roomCode}`);
 
-        // broadcast to everyone in the room
         io.to(payload.roomCode).emit(
           "room:participant-joined", 
           sessionManager.getLeaderboard(payload.roomCode)
@@ -197,6 +223,66 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
       } catch (error: any) {
         console.error(error);
         callback({ error: "Server error" });
+      }
+    });
+
+    socket.on("room:rejoin", async (payload, callback) => {
+      try {
+        const session = sessionManager.getSession(payload.roomCode);
+        if (!session) {
+          return callback({ success: false, error: "This session no longer exists." });
+        }
+
+        const participant = sessionManager.findParticipant(payload.roomCode, payload.participantId);
+        if (!participant) {
+          return callback({ success: false, error: "We couldn't find your spot in this session. Please rejoin with a new name." });
+        }
+
+        sessionManager.updateParticipantSocketId(payload.roomCode, payload.participantId, socket.id);
+        socket.join(payload.roomCode);
+
+        currentParticipantId = participant.id;
+        currentRoomCode = payload.roomCode;
+
+        let screenState: RejoinScreenState = "LOBBY";
+        
+        if (session.status === "LOBBY") {
+          screenState = "LOBBY";
+        } else if (session.status === "LIVE" && !session.hasRevealedCurrentQuestion) {
+          screenState = "QUESTION";
+        } else if (session.status === "LIVE" && session.hasRevealedCurrentQuestion) {
+          screenState = "REVEAL";
+        } else if (session.status === "ENDED") {
+          screenState = "ENDED";
+        }
+
+        const quiz = await prisma.quiz.findUnique({
+          where: { id: session.quizId },
+          select: { title: true }
+        });
+
+        const response: RoomRejoinResponse = {
+          success: true,
+          screenState,
+          quizTitle: quiz?.title || "Quiz",
+          myScore: participant.score,
+        };
+
+        if (screenState === "QUESTION") {
+          response.currentQuestion = sessionManager.getCurrentQuestionForRejoin(session);
+          response.hasAnsweredCurrentQuestion = sessionManager.hasAnswered(payload.roomCode, payload.participantId);
+        } else if (screenState === "REVEAL") {
+          response.revealData = sessionManager.getLastRevealData(payload.roomCode);
+          response.leaderboard = sessionManager.getLeaderboard(payload.roomCode);
+        } else if (screenState === "ENDED") {
+          response.leaderboard = sessionManager.getLeaderboard(payload.roomCode);
+        }
+
+        console.log(`Participant ${participant.name} (${participant.id}) rejoined room ${payload.roomCode}`);
+        callback(response);
+      } catch (error: any) {
+        console.error(error);
+        callback({ success: false, error: "Server error while rejoining" });
       }
     });
 
@@ -228,7 +314,6 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
       if (!session || session.status !== "LIVE") return;
 
       if (session.questionTimer) {
-        // host is skipping early
         await revealCurrentQuestion(session.roomCode);
       }
 
@@ -236,7 +321,6 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
       if (session.currentQuestionIndex < session.questions.length) {
         broadcastCurrentQuestion(session.roomCode);
       } else {
-        // no more questions -> treat as session end
         session.status = "ENDED";
         await prisma.session.update({
           where: { id: payload.sessionId },
@@ -265,7 +349,11 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
     });
 
     socket.on("disconnect", () => {
-      console.log(`Socket disconnected: ${socket.id}`);
+      if (currentParticipantId && currentRoomCode) {
+        console.log(`Socket disconnected: ${socket.id} (Participant: ${currentParticipantId}, Room: ${currentRoomCode})`);
+      } else {
+        console.log(`Socket disconnected: ${socket.id}`);
+      }
     });
   });
 }
