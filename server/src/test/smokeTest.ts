@@ -1,7 +1,7 @@
 import { io, Socket } from "socket.io-client";
 import { ClientToServerEvents, ServerToClientEvents, QuestionData } from "@quiz/shared-types";
-import prisma from "../prisma";
-import { generateToken } from "../auth/authUtils";
+import prisma from "../prisma.js";
+import { generateToken } from "../auth/authUtils.js";
 
 const SERVER_URL = "http://localhost:4000";
 

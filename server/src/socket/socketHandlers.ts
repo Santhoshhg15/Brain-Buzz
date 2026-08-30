@@ -1,8 +1,8 @@
 import { Server, Socket } from "socket.io";
 import { PrismaClient } from "@prisma/client";
 import { ClientToServerEvents, ServerToClientEvents, OptionCount, RoomRejoinResponse, RejoinScreenState } from "@quiz/shared-types";
-import * as sessionManager from "../session/sessionManager";
-import { verifyToken } from "../auth/authUtils";
+import * as sessionManager from "../session/sessionManager.js";
+import { verifyToken } from "../auth/authUtils.js";
 
 const prisma = new PrismaClient();
 

@@ -4,9 +4,9 @@ import http from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import { ClientToServerEvents, ServerToClientEvents } from "@quiz/shared-types";
-import quizRoutes from "./routes/quizRoutes";
-import authRoutes from "./routes/authRoutes";
-import { registerSocketHandlers } from "./socket/socketHandlers";
+import quizRoutes from "./routes/quizRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
+import { registerSocketHandlers } from "./socket/socketHandlers.js";
 
 const app = express();
 const port = process.env.PORT || 4000;

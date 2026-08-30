@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { verifyToken } from "./authUtils";
+import { verifyToken } from "./authUtils.js";
 
 export interface AuthenticatedRequest extends Request {
   instructor?: {

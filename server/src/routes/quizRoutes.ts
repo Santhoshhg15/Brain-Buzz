@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
-import prisma from "../prisma";
+import prisma from "../prisma.js";
 import { createId } from "@paralleldrive/cuid2";
-import { requireAuth } from "../auth/authMiddleware";
+import { requireAuth } from "../auth/authMiddleware.js";
 
 function handleError(res: Response, contextMessage: string, error: any) {
   console.error(contextMessage, error);
