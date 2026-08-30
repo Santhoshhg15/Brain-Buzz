@@ -4,8 +4,7 @@ import type { ClientToServerEvents, ServerToClientEvents, QuestionData } from "@
 
 type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
-export type ScreenState = "CONNECT" | "LOBBY" | "QUESTION" | "REVEAL" | "ENDED";
-
+export type ScreenState = "CONNECT" | "LOBBY" | "QUESTION" | "REVEAL" | "ENDED" | "TERMINATED";
 export interface Participant {
   id: string;
   name: string;
@@ -22,6 +21,8 @@ export interface LeaderboardEntry {
 interface DisplayStore {
   socket: AppSocket | null;
   screen: ScreenState;
+  isPaused: boolean;
+  terminatedData: { finalLeaderboard: LeaderboardEntry[] } | null;
   
   roomCode: string;
   setRoomCode: (code: string) => void;
@@ -44,6 +45,8 @@ const DISPLAY_NAME = "__DISPLAY__";
 export const useDisplayStore = create<DisplayStore>((set, get) => ({
   socket: null,
   screen: "CONNECT",
+  isPaused: false,
+  terminatedData: null,
   
   roomCode: "",
   setRoomCode: (code: string) => set({ roomCode: code.toUpperCase() }),
@@ -95,6 +98,26 @@ export const useDisplayStore = create<DisplayStore>((set, get) => ({
       set({
         screen: "ENDED",
         leaderboard
+      });
+    });
+
+    socket.on("session:paused", () => {
+      set({ isPaused: true });
+    });
+
+    socket.on("session:resumed", (payload) => {
+      set((state) => ({
+        isPaused: false,
+        currentQuestion: state.currentQuestion ? { ...state.currentQuestion, serverStartTime: payload.currentQuestion.serverStartTime } : null
+      }));
+    });
+
+    socket.on("session:terminated", (payload) => {
+      const leaderboard = (payload.finalLeaderboard as LeaderboardEntry[])
+        .filter(p => p.name !== DISPLAY_NAME);
+      set({
+        screen: "TERMINATED",
+        terminatedData: { finalLeaderboard: leaderboard }
       });
     });
 

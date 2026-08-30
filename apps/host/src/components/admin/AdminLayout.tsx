@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { useAdminStore } from "../../store/adminStore";
 import { LayoutDashboard, ArrowLeft, BookOpen } from "lucide-react";
 import { useAuthStore } from "../../auth/authStore";
+import { ThemeToggle } from "../ThemeToggle";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -75,6 +76,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           >
             Log Out
           </button>
+          <div className="flex justify-center pt-2">
+            <ThemeToggle />
+          </div>
           <Link
             to="/"
             className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-[var(--color-surface-elevated)] border border-[var(--color-border)] hover:border-[var(--color-accent)]/40 hover:bg-[var(--color-surface)] rounded-xl font-bold text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] transition-all ease-[var(--ease-smooth)] duration-200 shadow-sm active:scale-[0.98]"

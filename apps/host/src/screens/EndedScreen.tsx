@@ -1,16 +1,30 @@
 import { useCountUp } from "../hooks/useCountUp";
 import { useHostStore } from "../store/hostStore";
 
+function EndedLeaderboardRow({ entry, idx }: { entry: any; idx: number }) {
+  const animatedScore = useCountUp(entry.score);
+  return (
+    <div className="flex justify-between items-center p-4 border-b border-[var(--color-border)] last:border-0">
+      <div className="flex items-center gap-4">
+        <span className="font-bold text-[var(--color-text-secondary)] w-6">{idx + 4}</span>
+        <span className="font-bold text-lg text-[var(--color-text-primary)]">{entry.name}</span>
+      </div>
+      <span className="font-mono font-bold text-[var(--color-accent)]">{animatedScore} pts</span>
+    </div>
+  );
+}
+
 export function EndedScreen() {
-  const leaderboard = useHostStore(state => state.leaderboard);
-  const resetSession = useHostStore(state => state.resetSession);
+  const leaderboard = useHostStore((state) => state.leaderboard);
+  const restartSameSession = useHostStore((state) => state.restartSameSession);
+  const restartFreshSession = useHostStore((state) => state.restartFreshSession);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] w-full max-w-4xl mx-auto">
+    <div className="flex flex-col items-center justify-center min-h-[80vh] w-full max-w-4xl mx-auto py-8">
       <h1 className="text-5xl font-heading font-black text-[var(--color-text-primary)] mb-12">Final Results</h1>
 
       {/* Podium for top 3 */}
-      <div className="flex items-end justify-center gap-4 mb-16 h-64">
+      <div className="flex items-end justify-center gap-4 mb-16 h-64 w-full">
         {/* Rank 2 */}
         {leaderboard[1] && (
           <div className="flex flex-col items-center w-32 animate-fade-in-up" style={{ animationDelay: "200ms" }}>
@@ -49,23 +63,35 @@ export function EndedScreen() {
       {leaderboard.length > 3 && (
         <div className="w-full max-w-2xl bg-[var(--color-surface-elevated)] rounded-xl shadow-sm border border-[var(--color-border)] p-4 mb-12">
           {leaderboard.slice(3).map((entry, idx) => (
-            <div key={entry.id} className="flex justify-between items-center p-4 border-b border-[var(--color-border)] last:border-0">
-              <div className="flex items-center gap-4">
-                <span className="font-bold text-[var(--color-text-secondary)] w-6">{idx + 4}</span>
-                <span className="font-bold text-lg text-[var(--color-text-primary)]">{entry.name}</span>
-              </div>
-              <span className="font-mono font-bold text-[var(--color-accent)]">{useCountUp(entry.score)} pts</span>
-            </div>
+            <EndedLeaderboardRow key={entry.id} entry={entry} idx={idx} />
           ))}
         </div>
       )}
 
-      <button
-        onClick={resetSession}
-        className="bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white px-10 py-4 rounded-full font-bold text-xl shadow-lg transition-all ease-[var(--ease-smooth)]"
-      >
-        Start New Session
-      </button>
+      {/* Restart Controls (Two distinct options side by side) */}
+      <div className="w-full max-w-2xl bg-[var(--color-surface-elevated)] border border-[var(--color-border)] rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row gap-6 items-stretch">
+        <div className="flex-1 flex flex-col items-center text-center p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+          <h3 className="font-bold text-lg text-[var(--color-text-primary)] mb-1">Restart Same Session</h3>
+          <p className="text-xs text-[var(--color-text-secondary)] font-semibold mb-4">Same students, scores reset to 0</p>
+          <button
+            onClick={restartSameSession}
+            className="mt-auto w-full py-3 px-4 bg-[var(--color-surface-elevated)] border-2 border-[var(--color-accent)] text-[var(--color-accent)] font-bold text-sm rounded-xl hover:bg-[var(--color-accent)] hover:text-white transition-all active:scale-95 shadow-sm"
+          >
+            🔄 Restart Same Session
+          </button>
+        </div>
+
+        <div className="flex-1 flex flex-col items-center text-center p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+          <h3 className="font-bold text-lg text-[var(--color-text-primary)] mb-1">Start Fresh</h3>
+          <p className="text-xs text-[var(--color-text-secondary)] font-semibold mb-4">New room code, students rejoin</p>
+          <button
+            onClick={restartFreshSession}
+            className="mt-auto w-full py-3 px-4 bg-[var(--color-accent)] text-white font-bold text-sm rounded-xl hover:bg-[var(--color-accent-hover)] transition-all active:scale-95 shadow-md"
+          >
+            ✨ Start Fresh (New Code)
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

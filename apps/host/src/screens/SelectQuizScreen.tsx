@@ -4,18 +4,31 @@ import { useHostStore } from "../store/hostStore";
 
 export function SelectQuizScreen() {
   const fetchQuizzes = useHostStore(state => state.fetchQuizzes);
+  const checkForActiveSessions = useHostStore(state => state.checkForActiveSessions);
   const availableQuizzes = useHostStore(state => state.availableQuizzes);
+  const activeSessions = useHostStore(state => state.activeSessions);
   const createRoom = useHostStore(state => state.createRoom);
+  const rejoinSession = useHostStore(state => state.rejoinSession);
+  const dismissActiveSessionsBanner = useHostStore(state => state.dismissActiveSessionsBanner);
   const sessionError = useHostStore(state => state.sessionError);
   const creatingRoomId = useHostStore(state => state.creatingRoomId);
 
   useEffect(() => {
     fetchQuizzes();
-  }, [fetchQuizzes]);
+    checkForActiveSessions();
+  }, [fetchQuizzes, checkForActiveSessions]);
+
+  const activeSession = activeSessions[0];
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] relative">
-      <div className="absolute top-0 right-0">
+    <div className="flex flex-col items-center justify-center min-h-[60vh] relative w-full max-w-5xl mx-auto">
+      <div className="absolute top-0 right-0 flex items-center gap-3">
+        <Link 
+          to="/sessions" 
+          className="text-[var(--color-text-secondary)] font-bold text-sm bg-[var(--color-surface-elevated)] border border-[var(--color-border)] px-4 py-2 rounded-full hover:bg-[var(--color-surface)] transition-all ease-[var(--ease-smooth)]"
+        >
+          My Sessions
+        </Link>
         <Link 
           to="/admin" 
           className="text-[var(--color-accent)] font-bold text-sm bg-[var(--color-accent)]/10 px-4 py-2 rounded-full hover:bg-[var(--color-accent)]/20 transition-all ease-[var(--ease-smooth)]"
@@ -23,8 +36,38 @@ export function SelectQuizScreen() {
           Manage Quizzes
         </Link>
       </div>
+
       <h2 className="text-3xl font-heading font-bold mb-8 text-[var(--color-text-primary)] mt-12 sm:mt-0">Select a Quiz to Host</h2>
       
+      {/* Active Session Banner */}
+      {activeSession && (
+        <div className="w-full bg-[var(--color-accent)]/10 border-2 border-[var(--color-accent)]/30 p-4 rounded-2xl mb-8 flex flex-col sm:flex-row items-center justify-between gap-4 animate-[screenEnter_200ms_var(--ease-out-expo)] shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-3 h-3 rounded-full bg-[var(--color-accent)] animate-ping shrink-0" />
+            <div>
+              <span className="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-wider block">In-Progress Session Detected</span>
+              <p className="text-sm font-bold text-[var(--color-text-primary)]">
+                Quiz: <span className="text-[var(--color-accent)]">{activeSession.quizTitle}</span> (Room: <span className="font-mono font-bold">{activeSession.roomCode}</span>)
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <button
+              onClick={() => rejoinSession(activeSession.sessionId)}
+              className="flex-1 sm:flex-initial px-5 py-2 bg-[var(--color-accent)] text-white text-xs font-bold rounded-xl hover:bg-[var(--color-accent-hover)] transition-all active:scale-95 shadow-md"
+            >
+              Resume
+            </button>
+            <button
+              onClick={dismissActiveSessionsBanner}
+              className="px-3 py-2 text-xs font-bold text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       {sessionError && (
         <div className="bg-[var(--color-error-bg)]/80 text-[var(--color-error)] border border-[var(--color-error)]/25 text-xs font-bold p-3.5 rounded-xl text-center mb-6 max-w-md w-full animate-[screenEnter_200ms_var(--ease-out-expo)]">
           {sessionError}

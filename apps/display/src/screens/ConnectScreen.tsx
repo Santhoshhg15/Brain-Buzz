@@ -1,4 +1,5 @@
 import { useDisplayStore } from "../store/displayStore";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 export function ConnectScreen() {
   const roomCode = useDisplayStore(state => state.roomCode);
@@ -12,7 +13,10 @@ export function ConnectScreen() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center w-full min-h-screen bg-[var(--color-surface)]">
+    <div className="flex flex-col items-center justify-center w-full min-h-screen bg-[var(--color-surface)] relative">
+      <div className="absolute top-6 right-6">
+        <ThemeToggle />
+      </div>
       <div className="bg-[var(--color-surface-elevated)] rounded-2xl shadow-2xl p-12 w-full max-w-xl border border-[var(--color-border)]">
         <h1 className="text-4xl font-black text-center text-[var(--color-text-primary)] mb-2">Display Mode</h1>
         <p className="text-[var(--color-text-secondary)] text-center mb-10 text-xl">Enter the Room Code from the Host Console</p>

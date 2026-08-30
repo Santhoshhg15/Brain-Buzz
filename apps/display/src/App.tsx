@@ -5,6 +5,7 @@ import { LobbyDisplayScreen } from "./screens/LobbyDisplayScreen";
 import { QuestionDisplayScreen } from "./screens/QuestionDisplayScreen";
 import { RevealDisplayScreen } from "./screens/RevealDisplayScreen";
 import { EndedDisplayScreen } from "./screens/EndedDisplayScreen";
+import { TerminatedDisplayScreen } from "./screens/TerminatedDisplayScreen";
 import { AmbientBackground } from "./components/AmbientBackground";
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
         {screen === "QUESTION" && <QuestionDisplayScreen />}
         {screen === "REVEAL" && <RevealDisplayScreen />}
         {screen === "ENDED" && <EndedDisplayScreen />}
+        {screen === "TERMINATED" && <TerminatedDisplayScreen />}
       </main>
     </div>
   );

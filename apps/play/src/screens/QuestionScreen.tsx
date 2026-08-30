@@ -43,6 +43,7 @@ export function QuestionScreen() {
   const currentQuestion = usePlayStore(state => state.currentQuestion);
   const submitAnswer = usePlayStore(state => state.submitAnswer);
   const selectedOptionId = usePlayStore(state => state.selectedOptionId);
+  const isPaused = usePlayStore(state => state.isPaused);
   const [timeLeft, setTimeLeft] = useState(0);
   const [progress, setProgress] = useState(100);
   const urgentTriggered = useRef(false);
@@ -56,6 +57,7 @@ export function QuestionScreen() {
     urgentTriggered.current = false;
     
     const updateTimer = () => {
+      if (isPaused) return;
       const remainingMs = Math.max(0, endTime - Date.now());
       const currentProgress = (remainingMs / totalDuration) * 100;
       
@@ -72,7 +74,7 @@ export function QuestionScreen() {
     const interval = setInterval(updateTimer, 100); // 100ms for smoother progress bar
     
     return () => clearInterval(interval);
-  }, [currentQuestion]);
+  }, [currentQuestion, isPaused]);
 
   if (!currentQuestion) return null;
 
@@ -88,7 +90,17 @@ export function QuestionScreen() {
   };
 
   return (
-    <div className="flex flex-col w-full min-h-[90vh] px-2 py-4">
+    <div className="flex flex-col w-full min-h-[90vh] px-2 py-4 relative">
+      {isPaused && (
+        <div className="absolute inset-0 z-50 bg-[var(--color-bg)]/40 backdrop-blur-sm flex items-center justify-center p-4 rounded-3xl">
+          <div className="bg-[var(--color-surface-elevated)] p-6 rounded-2xl shadow-premium border-2 border-amber-300 max-w-sm w-full text-center animate-fade-in-up">
+            <div className="text-5xl mb-4">⏸</div>
+            <h3 className="text-2xl font-heading font-bold text-[var(--color-text-primary)] mb-2">Quiz Paused</h3>
+            <p className="text-[var(--color-text-secondary)] font-semibold">Hang tight, the host will resume shortly.</p>
+          </div>
+        </div>
+      )}
+      
       {/* Header */}
       <div className="flex justify-between items-center mb-4 px-2">
         <span className="font-bold text-[var(--color-text-secondary)] bg-[var(--color-surface-elevated)] px-3 py-1 rounded-full shadow-sm border border-[var(--color-border)]">

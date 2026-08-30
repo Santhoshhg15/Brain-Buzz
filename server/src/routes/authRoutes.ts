@@ -1,12 +1,21 @@
 import { Router, Request, Response } from "express";
+import rateLimit from "express-rate-limit";
 import prisma from "../prisma.js";
 import { comparePassword, generateToken } from "../auth/authUtils.js";
 import { requireAuth, AuthenticatedRequest } from "../auth/authMiddleware.js";
 
 const router = Router();
 
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts per IP per window
+  message: { error: "Too many login attempts. Please try again in a few minutes." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // POST /api/auth/login
-router.post("/login", async (req: Request, res: Response): Promise<void> => {
+router.post("/login", loginLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
 

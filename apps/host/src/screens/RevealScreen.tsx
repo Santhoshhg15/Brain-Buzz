@@ -1,6 +1,19 @@
 import { useCountUp } from "../hooks/useCountUp";
 import { useHostStore } from "../store/hostStore";
 
+function LeaderboardRow({ entry, idx }: { entry: any; idx: number }) {
+  const animatedScore = useCountUp(entry.score);
+  return (
+    <div className="flex items-center justify-between p-4 border-b border-[var(--color-border)] last:border-0">
+      <div className="flex items-center gap-4">
+        <span className="text-xl font-heading font-bold text-[var(--color-text-secondary)] w-6">{idx + 1}</span>
+        <span className="text-lg font-bold text-[var(--color-text-primary)]">{entry.name}</span>
+      </div>
+      <span className="font-mono font-bold text-[var(--color-accent)]">{animatedScore}</span>
+    </div>
+  );
+}
+
 export function RevealScreen() {
   const currentQuestion = useHostStore(state => state.currentQuestion);
   const revealData = useHostStore(state => state.revealData);
@@ -75,13 +88,7 @@ export function RevealScreen() {
           </div>
           <div className="p-2 flex-1 overflow-y-auto">
             {leaderboard.slice(0, 5).map((entry, idx) => (
-              <div key={entry.id} className="flex items-center justify-between p-4 border-b border-[var(--color-border)] last:border-0">
-                <div className="flex items-center gap-4">
-                  <span className="text-xl font-heading font-bold text-[var(--color-text-secondary)] w-6">{idx + 1}</span>
-                  <span className="text-lg font-bold text-[var(--color-text-primary)]">{entry.name}</span>
-                </div>
-                <span className="font-mono font-bold text-[var(--color-accent)]">{useCountUp(entry.score)}</span>
-              </div>
+              <LeaderboardRow key={entry.id} entry={entry} idx={idx} />
             ))}
             {leaderboard.length === 0 && (
               <div className="p-8 text-center text-[var(--color-text-secondary)] italic">No scores yet</div>

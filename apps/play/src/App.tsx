@@ -6,7 +6,9 @@ import { QuestionScreen } from "./screens/QuestionScreen";
 import { AnsweredScreen } from "./screens/AnsweredScreen";
 import { RevealScreen } from "./screens/RevealScreen";
 import { EndedScreen } from "./screens/EndedScreen";
+import { TerminatedScreen } from "./screens/TerminatedScreen";
 import { AmbientBackground } from "./components/AmbientBackground";
+import { ThemeToggle } from "./components/ThemeToggle";
 
 function App() {
   const initSocket = usePlayStore(state => state.initSocket);
@@ -32,7 +34,7 @@ function App() {
       )}
 
       {/* Mobile-first Header */}
-      {screen !== "QUESTION" && screen !== "ENDED" && screen !== "REVEAL" && (
+      {screen !== "QUESTION" && screen !== "ENDED" && screen !== "TERMINATED" && screen !== "REVEAL" && (
         <header className="bg-[var(--color-surface-elevated)]/80 backdrop-blur-md shadow-sm py-3 border-b border-[var(--color-border)]/50 px-4 flex justify-between items-center sticky top-0 z-50">
           <div className="flex items-center gap-2">
             <div className="bg-[var(--color-accent)] text-white p-1.5 rounded-lg shadow-sm">
@@ -45,11 +47,14 @@ function App() {
             </h1>
           </div>
           
-          {roomCode && screen !== "JOIN" && (
-            <div className="bg-[var(--color-surface)] text-[var(--color-accent)] font-mono font-bold px-3 py-1 rounded-md text-sm border border-[var(--color-border)] uppercase tracking-widest">
-              {roomCode}
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            {roomCode && screen !== "JOIN" && (
+              <div className="bg-[var(--color-surface)] text-[var(--color-accent)] font-mono font-bold px-3 py-1 rounded-md text-sm border border-[var(--color-border)] uppercase tracking-widest">
+                {roomCode}
+              </div>
+            )}
+          </div>
         </header>
       )}
 
@@ -68,6 +73,7 @@ function App() {
             {screen === "ANSWERED" && <AnsweredScreen />}
             {screen === "REVEAL" && <RevealScreen />}
             {screen === "ENDED" && <EndedScreen />}
+            {screen === "TERMINATED" && <TerminatedScreen />}
           </>
         )}
       </main>

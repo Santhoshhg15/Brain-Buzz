@@ -1,13 +1,17 @@
 import { AmbientBackground } from "./components/AmbientBackground";
 import { Laptop, PlayCircle } from "lucide-react";
+import { ThemeToggle } from "./components/ThemeToggle";
 
 function App() {
   const hostUrl = import.meta.env.VITE_HOST_APP_URL || "https://brain-buzz-host.vercel.app";
   const playUrl = import.meta.env.VITE_PLAY_APP_URL || "https://brain-buzz-play.vercel.app";
 
   return (
-    <div className="min-h-screen bg-[var(--color-bg)] font-sans text-[var(--color-text-primary)] flex items-center justify-center p-6 relative">
+    <div className="min-h-screen bg-[var(--color-bg)] font-sans text-[var(--color-text-primary)] flex items-center justify-center p-6 relative overflow-hidden">
       <AmbientBackground />
+      <div className="absolute top-6 right-6 z-50">
+        <ThemeToggle />
+      </div>
       
       <div className="w-full max-w-3xl flex flex-col items-center text-center animate-[screenEnter_300ms_var(--ease-out-expo)]">
         {/* Branding Logo Area */}

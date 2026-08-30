@@ -32,6 +32,8 @@ export interface SessionState {
   lastRevealData?: QuestionRevealPayload;
   isPaused: boolean;
   pausedRemainingMs: number | null;
+  lastActivityAt: number;
+  isRestarting?: boolean;
 }
 
 const sessionsByRoomCode = new Map<string, SessionState>();
@@ -46,6 +48,13 @@ export function generateRoomCode(): string {
     code = `${randomChars}-${randomNums}`;
   } while (sessionsByRoomCode.has(code));
   return code;
+}
+
+export function touchActivity(roomCode: string): void {
+  const session = sessionsByRoomCode.get(roomCode);
+  if (session) {
+    session.lastActivityAt = Date.now();
+  }
 }
 
 export function createSession(
@@ -72,6 +81,8 @@ export function createSession(
     hasRevealedCurrentQuestion: false,
     isPaused: false,
     pausedRemainingMs: null,
+    lastActivityAt: Date.now(),
+    isRestarting: false,
   };
   sessionsByRoomCode.set(roomCode, session);
   roomCodeBySessionId.set(sessionId, roomCode);
@@ -92,6 +103,7 @@ export function addParticipant(roomCode: string, participantId: string, name: st
   const session = sessionsByRoomCode.get(roomCode);
   if (session) {
     session.participants.set(participantId, { id: participantId, name, socketId, score: 0 });
+    session.lastActivityAt = Date.now();
   }
 }
 
@@ -104,12 +116,16 @@ export function updateParticipantSocketId(roomCode: string, participantId: strin
   if (session) {
     const participant = session.participants.get(participantId);
     if (participant) participant.socketId = newSocketId;
+    session.lastActivityAt = Date.now();
   }
 }
 
 export function updateHostSocketId(roomCode: string, socketId: string): void {
   const session = sessionsByRoomCode.get(roomCode);
-  if (session) session.hostSocketId = socketId;
+  if (session) {
+    session.hostSocketId = socketId;
+    session.lastActivityAt = Date.now();
+  }
 }
 
 export function hasAnswered(roomCode: string, participantId: string): boolean {
@@ -149,6 +165,7 @@ export function recordAnswer(roomCode: string, participantId: string, optionId: 
   const session = sessionsByRoomCode.get(roomCode);
   if (session && !session.currentQuestionAnswers.has(participantId)) {
     session.currentQuestionAnswers.set(participantId, { optionId, answeredAtMs: Date.now() });
+    session.lastActivityAt = Date.now();
   }
 }
 
@@ -191,12 +208,10 @@ export function pauseSession(roomCode: string): void {
   const question = session.questions[session.currentQuestionIndex];
   if (!question) return;
 
-  // Calculate remaining time
   const totalDurationMs = question.durationSeconds * 1000;
   const elapsed = Date.now() - session.questionStartTimeMs;
   const remaining = Math.max(0, totalDurationMs - elapsed);
 
-  // Clear the running timer
   if (session.questionTimer) {
     clearTimeout(session.questionTimer);
     session.questionTimer = null;
@@ -204,17 +219,9 @@ export function pauseSession(roomCode: string): void {
 
   session.isPaused = true;
   session.pausedRemainingMs = remaining;
+  session.lastActivityAt = Date.now();
 }
 
-/**
- * Resume a paused session.
- * Returns a fresh QuestionData with corrected serverStartTime so all clients
- * can reconstruct the accurate countdown without any gaps.
- *
- * The trick: we set questionStartTimeMs to (now - elapsed_already) so that
- * (now - questionStartTimeMs) still equals the time already consumed.
- * elapsed_already = originalDuration - pausedRemainingMs
- */
 export function resumeSession(
   roomCode: string,
   onReveal: (roomCode: string) => void
@@ -229,15 +236,18 @@ export function resumeSession(
   const totalDurationMs = question.durationSeconds * 1000;
   const alreadyElapsed = totalDurationMs - remaining;
 
-  // Back-date the start time so elapsed math remains consistent
   const syntheticStartTime = Date.now() - alreadyElapsed;
   session.questionStartTimeMs = syntheticStartTime;
   session.isPaused = false;
   session.pausedRemainingMs = null;
+  session.lastActivityAt = Date.now();
 
-  // Start a new timer for the remaining duration
   session.questionTimer = setTimeout(() => {
-    onReveal(roomCode);
+    try {
+      onReveal(roomCode);
+    } catch (err) {
+      console.error(`[TIMER ERROR in resumeSession]:`, err);
+    }
   }, remaining);
 
   return {
@@ -257,13 +267,11 @@ export async function restartSessionSame(roomCode: string): Promise<void> {
   const session = sessionsByRoomCode.get(roomCode);
   if (!session) return;
 
-  // Clear any running timer
   if (session.questionTimer) {
     clearTimeout(session.questionTimer);
     session.questionTimer = null;
   }
 
-  // Reset in-memory scores and clear answers
   for (const participant of session.participants.values()) {
     participant.score = 0;
   }
@@ -274,8 +282,8 @@ export async function restartSessionSame(roomCode: string): Promise<void> {
   session.pausedRemainingMs = null;
   session.hasRevealedCurrentQuestion = false;
   session.lastRevealData = undefined;
+  session.lastActivityAt = Date.now();
 
-  // Persist resets to DB: reset all participant scores and session status
   const participantIds = Array.from(session.participants.keys());
   await Promise.all([
     prisma.participant.updateMany({
@@ -295,5 +303,25 @@ export function removeSession(roomCode: string): void {
     if (session.questionTimer) clearTimeout(session.questionTimer);
     roomCodeBySessionId.delete(session.sessionId);
     sessionsByRoomCode.delete(roomCode);
+  }
+}
+
+export async function reapAbandonedSessions(): Promise<void> {
+  const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+  const now = Date.now();
+
+  for (const session of Array.from(sessionsByRoomCode.values())) {
+    if (session.status === "LOBBY" && now - session.lastActivityAt > TWO_HOURS_MS) {
+      console.log(`[ABANDONED SESSION SWEEP] Reaping abandoned LOBBY session: ${session.roomCode} (Session ID: ${session.sessionId})`);
+      try {
+        await prisma.session.update({
+          where: { id: session.sessionId },
+          data: { status: "INTERRUPTED" },
+        });
+      } catch (err) {
+        console.error(`[ABANDONED SESSION SWEEP] Failed to update DB status for ${session.roomCode}:`, err);
+      }
+      removeSession(session.roomCode);
+    }
   }
 }

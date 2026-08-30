@@ -88,6 +88,10 @@ router.post("/quizzes", requireAuth, async (req: Request, res: Response): Promis
       res.status(400).json({ error: "Title must be a non-empty string" });
       return;
     }
+    if (title.trim().length > 200) {
+      res.status(400).json({ error: "Title cannot exceed 200 characters" });
+      return;
+    }
 
     const quiz = await prisma.quiz.create({
       data: {
@@ -109,6 +113,10 @@ router.patch("/quizzes/:id", requireAuth, async (req: Request, res: Response): P
     
     if (typeof title !== 'string' || title.trim() === '') {
       res.status(400).json({ error: "Title must be a non-empty string" });
+      return;
+    }
+    if (title.trim().length > 200) {
+      res.status(400).json({ error: "Title cannot exceed 200 characters" });
       return;
     }
 
@@ -225,6 +233,10 @@ router.post("/quizzes/:id/questions", requireAuth, async (req: Request, res: Res
       res.status(400).json({ error: "Text must be a non-empty string" });
       return;
     }
+    if (text.trim().length > 2000) {
+      res.status(400).json({ error: "Question text cannot exceed 2000 characters" });
+      return;
+    }
     if (!Number.isInteger(durationSeconds) || durationSeconds < 5 || durationSeconds > 120) {
       res.status(400).json({ error: "durationSeconds must be a positive integer between 5 and 120" });
       return;
@@ -242,6 +254,10 @@ router.post("/quizzes/:id/questions", requireAuth, async (req: Request, res: Res
     for (const opt of options) {
       if (typeof opt.text !== 'string' || opt.text.trim() === '') {
         res.status(400).json({ error: "Every option must have non-empty text" });
+        return;
+      }
+      if (opt.text.trim().length > 500) {
+        res.status(400).json({ error: "Option text cannot exceed 500 characters" });
         return;
       }
       if (opt.isCorrect === true) {
@@ -362,6 +378,8 @@ router.post("/quizzes/:id/questions/bulk", requireAuth, async (req: Request, res
 
       if (typeof q.text !== 'string' || q.text.trim() === '') {
         errors.push("Text must be a non-empty string");
+      } else if (q.text.trim().length > 2000) {
+        errors.push("Question text cannot exceed 2000 characters");
       }
       if (!Number.isInteger(q.durationSeconds) || q.durationSeconds < 5 || q.durationSeconds > 120) {
         errors.push("durationSeconds must be a positive integer between 5 and 120");
@@ -374,9 +392,12 @@ router.post("/quizzes/:id/questions/bulk", requireAuth, async (req: Request, res
       } else {
         let correctCount = 0;
         let hasEmptyOption = false;
+        let hasLongOption = false;
         for (const opt of q.options) {
           if (typeof opt.text !== 'string' || opt.text.trim() === '') {
             hasEmptyOption = true;
+          } else if (opt.text.trim().length > 500) {
+            hasLongOption = true;
           }
           if (opt.isCorrect === true) {
             correctCount++;
@@ -384,6 +405,9 @@ router.post("/quizzes/:id/questions/bulk", requireAuth, async (req: Request, res
         }
         if (hasEmptyOption) {
           errors.push("Every option must have non-empty text");
+        }
+        if (hasLongOption) {
+          errors.push("Option text cannot exceed 500 characters");
         }
         if (correctCount !== 1) {
           errors.push("Exactly ONE option must have isCorrect: true");
@@ -486,6 +510,10 @@ router.patch("/questions/:id", requireAuth, async (req: Request, res: Response):
         res.status(400).json({ error: "Text must be a non-empty string" });
         return;
       }
+      if (text.trim().length > 2000) {
+        res.status(400).json({ error: "Question text cannot exceed 2000 characters" });
+        return;
+      }
       updateData.text = text.trim();
     }
     if (durationSeconds !== undefined) {
@@ -577,9 +605,15 @@ router.patch("/options/:id", requireAuth, async (req: Request, res: Response): P
       return;
     }
 
-    if (text !== undefined && (typeof text !== 'string' || text.trim() === '')) {
-      res.status(400).json({ error: "Text must be a non-empty string" });
-      return;
+    if (text !== undefined) {
+      if (typeof text !== 'string' || text.trim() === '') {
+        res.status(400).json({ error: "Text must be a non-empty string" });
+        return;
+      }
+      if (text.trim().length > 500) {
+        res.status(400).json({ error: "Option text cannot exceed 500 characters" });
+        return;
+      }
     }
 
     const updatedOption = await prisma.$transaction(async (tx) => {

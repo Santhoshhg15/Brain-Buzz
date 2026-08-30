@@ -87,7 +87,7 @@ export interface ClientToServerEvents {
   "session:start": (payload: { sessionId: string }) => void;
   "session:pause": (payload: { sessionId: string }) => void;
   "session:resume": (payload: { sessionId: string }) => void;
-  "session:terminate": (payload: { sessionId: string }) => void;
+  "session:terminate": (payload: { sessionId: string }, callback: (res: { success: boolean; error?: string }) => void) => void;
   "session:restartSame": (payload: { sessionId: string }) => void;
   "session:end": (payload: { sessionId: string }) => void;
   "answer:submit": (payload: { sessionId: string; participantId: string; questionId: string; optionId: string }) => void;
@@ -102,7 +102,7 @@ export interface ServerToClientEvents {
   "session:ended": (payload: ParticipantData[]) => void;
   "session:paused": () => void;
   "session:resumed": (payload: { currentQuestion: QuestionData }) => void;
-  "session:terminated": () => void;
+  "session:terminated": (payload: { finalLeaderboard: ParticipantData[] }) => void;
   "session:restarted": () => void;
   "answeredCount:update": (payload: { answeredCount: number; totalParticipants: number }) => void;
 }

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom
 import { SessionFlow } from "./SessionFlow";
 import { AdminDashboard } from "./screens/AdminDashboard";
 import { QuizEditor } from "./screens/QuizEditor";
+import { SessionsScreen } from "./screens/SessionsScreen";
 import { AmbientBackground } from "./components/AmbientBackground";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import { useAuthStore } from "./auth/authStore";
@@ -62,6 +63,7 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" element={<SessionFlow />} />
+          <Route path="/sessions" element={<SessionsScreen />} />
           <Route element={<AdminLayoutWrapper />}>
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/quizzes/:quizId" element={<QuizEditor />} />

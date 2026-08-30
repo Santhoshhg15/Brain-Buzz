@@ -81,23 +81,27 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
     const leaderboard = sessionManager.getLeaderboard(roomCode);
     io.to(roomCode).emit("leaderboard:update", leaderboard);
 
-    // Auto-advance after 5 seconds
-    setTimeout(async () => {
-      const currentSession = sessionManager.getSession(roomCode);
-      if (!currentSession || currentSession.status !== "LIVE") return;
+    // Auto-advance after 5 seconds with crash protection
+    session.questionTimer = setTimeout(async () => {
+      try {
+        const currentSession = sessionManager.getSession(roomCode);
+        if (!currentSession || currentSession.status !== "LIVE") return;
 
-      currentSession.currentQuestionIndex++;
-      if (currentSession.currentQuestionIndex < currentSession.questions.length) {
-        broadcastCurrentQuestion(currentSession.roomCode);
-      } else {
-        currentSession.status = "ENDED";
-        await prisma.session.update({
-          where: { id: currentSession.sessionId },
-          data: { status: "ENDED" },
-        });
-        io.to(currentSession.roomCode).emit("session:ended", sessionManager.getLeaderboard(currentSession.roomCode));
-        sessionManager.removeSession(currentSession.roomCode);
-        console.log(`Session ${currentSession.roomCode} ended automatically.`);
+        currentSession.currentQuestionIndex++;
+        if (currentSession.currentQuestionIndex < currentSession.questions.length) {
+          broadcastCurrentQuestion(currentSession.roomCode);
+        } else {
+          currentSession.status = "ENDED";
+          await prisma.session.update({
+            where: { id: currentSession.sessionId },
+            data: { status: "ENDED" },
+          });
+          io.to(currentSession.roomCode).emit("session:ended", sessionManager.getLeaderboard(currentSession.roomCode));
+          sessionManager.removeSession(currentSession.roomCode);
+          console.log(`Session ${currentSession.roomCode} ended automatically.`);
+        }
+      } catch (err) {
+        console.error(`[TIMER ERROR in revealCurrentQuestion auto-advance]:`, err);
       }
     }, 5000);
   }
@@ -126,8 +130,13 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
 
     io.to(roomCode).emit("question:broadcast", questionPayload);
 
-    session.questionTimer = setTimeout(() => {
-      revealCurrentQuestion(roomCode);
+    // Expiry timer with crash protection
+    session.questionTimer = setTimeout(async () => {
+      try {
+        await revealCurrentQuestion(roomCode);
+      } catch (err) {
+        console.error(`[TIMER ERROR in broadcastCurrentQuestion expiry]:`, err);
+      }
     }, question.durationSeconds * 1000);
   }
 
@@ -205,11 +214,9 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
         const decoded = verifyToken(token);
         if (!decoded) return callback({ success: false, error: "Invalid or expired session" });
 
-        // Check in-memory first
         const session = sessionManager.getSessionById(payload.sessionId);
 
         if (!session) {
-          // Session lost from memory — mark DB row as INTERRUPTED if not already ENDED
           const dbSession = await prisma.session.findUnique({ where: { id: payload.sessionId } });
           if (dbSession && !["ENDED", "INTERRUPTED"].includes(dbSession.status)) {
             await prisma.session.update({
@@ -223,16 +230,13 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
           });
         }
 
-        // Ownership check
         if (session.instructorId !== decoded.instructorId) {
           return callback({ success: false, error: "You do not own this session." });
         }
 
-        // Bind this connection as the host
         sessionManager.updateHostSocketId(session.roomCode, socket.id);
         socket.join(session.roomCode);
 
-        // Fetch quiz title
         const dbSession = await prisma.session.findUnique({
           where: { id: session.sessionId },
           include: { quiz: { select: { title: true } } },
@@ -275,6 +279,15 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
     // ─── room:join ────────────────────────────────────────────────────────────
     socket.on("room:join", async (payload, callback) => {
       try {
+        if (typeof payload.studentName !== "string" || payload.studentName.trim() === "") {
+          return callback({ error: "Nickname is required" });
+        }
+
+        const studentName = payload.studentName.trim();
+        if (studentName.length > 50) {
+          return callback({ error: "Nickname cannot exceed 50 characters" });
+        }
+
         const session = sessionManager.getSession(payload.roomCode);
         if (!session || session.status !== "LOBBY") {
           return callback({ error: "Session not found or already started" });
@@ -285,17 +298,28 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
           select: { title: true },
         });
 
-        const participant = await prisma.participant.create({
-          data: { sessionId: session.sessionId, name: payload.studentName },
-        });
+        let participant;
+        const joinStartTime = Date.now();
+        try {
+          participant = await prisma.participant.create({
+            data: { sessionId: session.sessionId, name: studentName },
+          });
+        } catch (dbError) {
+          console.error(`[DB ERROR in room:join]`, dbError);
+          return callback({ error: "Database error joining session" });
+        }
+        const joinDuration = Date.now() - joinStartTime;
+        if (joinDuration > 1000) {
+          console.warn(`[SLOW JOIN] Participant creation took ${joinDuration}ms for room ${payload.roomCode} — possible DB connection pool pressure`);
+        }
 
-        sessionManager.addParticipant(payload.roomCode, participant.id, payload.studentName, socket.id);
+        sessionManager.addParticipant(payload.roomCode, participant.id, studentName, socket.id);
         socket.join(payload.roomCode);
 
         currentParticipantId = participant.id;
         currentRoomCode = payload.roomCode;
 
-        console.log(`Participant ${payload.studentName} joined room ${payload.roomCode}`);
+        console.log(`Participant ${studentName} joined room ${payload.roomCode}`);
 
         io.to(payload.roomCode).emit("room:participant-joined", sessionManager.getLeaderboard(payload.roomCode));
 
@@ -388,6 +412,9 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
       if (!owned) return;
       const { session } = owned;
 
+      // Idempotency guard: ignore duplicate pause triggers
+      if (session.isPaused) return;
+
       sessionManager.pauseSession(session.roomCode);
       await prisma.session.update({
         where: { id: session.sessionId },
@@ -405,6 +432,9 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
       if (!owned) return;
       const { session } = owned;
 
+      // Idempotency guard: ignore duplicate resume triggers
+      if (!session.isPaused) return;
+
       const currentQuestion = sessionManager.resumeSession(session.roomCode, revealCurrentQuestion);
       if (!currentQuestion) return;
 
@@ -419,19 +449,69 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
     });
 
     // ─── session:terminate ────────────────────────────────────────────────────
-    socket.on("session:terminate", async (payload) => {
-      const owned = verifyInstructorOwnsSession(socket, payload.sessionId);
-      if (!owned) return;
-      const { session } = owned;
+    socket.on("session:terminate", async (payload, callback) => {
+      try {
+        const token = socket.handshake.auth?.token;
+        if (!token) {
+          if (callback) callback({ success: false, error: "Missing authentication token." });
+          return;
+        }
 
-      await prisma.session.update({
-        where: { id: session.sessionId },
-        data: { status: "ENDED" },
-      });
+        const decoded = verifyToken(token);
+        if (!decoded) {
+          if (callback) callback({ success: false, error: "Invalid or expired token." });
+          return;
+        }
 
-      io.to(session.roomCode).emit("session:terminated");
-      sessionManager.removeSession(session.roomCode);
-      console.log(`Session ${session.roomCode} terminated by instructor.`);
+        let session = sessionManager.getSessionById(payload.sessionId);
+        
+        if (!session) {
+          // Fallback to DB
+          const dbSession = await prisma.session.findUnique({ where: { id: payload.sessionId } });
+          if (!dbSession) {
+            if (callback) callback({ success: false, error: "Session not found." });
+            return;
+          }
+          if (dbSession.instructorId !== decoded.instructorId) {
+            if (callback) callback({ success: false, error: "You don't have permission to terminate this session." });
+            return;
+          }
+          if (dbSession.status !== "ENDED" && dbSession.status !== "INTERRUPTED") {
+            await prisma.session.update({
+              where: { id: payload.sessionId },
+              data: { status: "ENDED" },
+            });
+          }
+          if (callback) callback({ success: true });
+          return;
+        }
+
+        if (session.instructorId !== decoded.instructorId) {
+          if (callback) callback({ success: false, error: "You don't have permission to terminate this session." });
+          return;
+        }
+
+        // Idempotency guard: ignore duplicate terminate triggers
+        if (session.status === "ENDED") {
+          if (callback) callback({ success: true });
+          return;
+        }
+
+        await prisma.session.update({
+          where: { id: session.sessionId },
+          data: { status: "ENDED" },
+        });
+
+        session.status = "ENDED";
+        io.to(session.roomCode).emit("session:terminated", { finalLeaderboard: sessionManager.getLeaderboard(session.roomCode) });
+        sessionManager.removeSession(session.roomCode);
+        console.log(`Session ${session.roomCode} terminated by instructor.`);
+        
+        if (callback) callback({ success: true });
+      } catch (err) {
+        console.error("Error terminating session:", err);
+        if (callback) callback({ success: false, error: "Something went wrong while terminating this session." });
+      }
     });
 
     // ─── session:restartSame ──────────────────────────────────────────────────
@@ -440,9 +520,19 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
       if (!owned) return;
       const { session } = owned;
 
-      await sessionManager.restartSessionSame(session.roomCode);
-      io.to(session.roomCode).emit("session:restarted");
-      console.log(`Session ${session.roomCode} restarted (same room).`);
+      // Idempotency guard: ignore concurrent duplicate restart triggers
+      if (session.isRestarting) return;
+      session.isRestarting = true;
+
+      try {
+        await sessionManager.restartSessionSame(session.roomCode);
+        io.to(session.roomCode).emit("session:restarted");
+        console.log(`Session ${session.roomCode} restarted (same room).`);
+      } catch (err) {
+        console.error("Error restarting session:", err);
+      } finally {
+        session.isRestarting = false;
+      }
     });
 
     // ─── session:end ──────────────────────────────────────────────────────────
@@ -467,7 +557,6 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
       if (session && session.status === "LIVE") {
         sessionManager.recordAnswer(session.roomCode, payload.participantId, payload.optionId);
 
-        // Broadcast live answered count to everyone (host uses this)
         const { answeredCount, totalParticipants } = sessionManager.getAnsweredCount(session.roomCode);
         io.to(session.roomCode).emit("answeredCount:update", { answeredCount, totalParticipants });
       }
@@ -478,8 +567,20 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
       const session = sessionManager.getSessionById(payload.sessionId);
       if (!session || session.status !== "LIVE") return;
 
-      if (session.questionTimer) {
+      // If the question hasn't been revealed yet, just reveal it (Skip timer)
+      if (!session.hasRevealedCurrentQuestion) {
+        if (session.questionTimer) {
+          clearTimeout(session.questionTimer);
+          session.questionTimer = null;
+        }
         await revealCurrentQuestion(session.roomCode);
+        return; // Don't advance to the next question yet!
+      }
+
+      // If it HAS been revealed, manual advance (Skip the 5s auto-advance timer)
+      if (session.questionTimer) {
+        clearTimeout(session.questionTimer);
+        session.questionTimer = null;
       }
 
       session.currentQuestionIndex++;

@@ -9,6 +9,10 @@ async function main() {
   }
 
   const [email, password, name] = args;
+  if (name.length > 100) {
+    console.error("Instructor name cannot exceed 100 characters");
+    process.exit(1);
+  }
   const passwordHash = await hashPassword(password);
 
   const instructor = await prisma.instructor.upsert({
