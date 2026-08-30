@@ -2,8 +2,8 @@ import { AmbientBackground } from "./components/AmbientBackground";
 import { Laptop, PlayCircle } from "lucide-react";
 
 function App() {
-  const hostUrl = import.meta.env.VITE_HOST_APP_URL || "http://localhost:5173";
-  const playUrl = import.meta.env.VITE_PLAY_APP_URL || "http://localhost:5174";
+  const hostUrl = import.meta.env.VITE_HOST_APP_URL || "https://brain-buzz-host.vercel.app";
+  const playUrl = import.meta.env.VITE_PLAY_APP_URL || "https://brain-buzz-play.vercel.app";
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)] font-sans text-[var(--color-text-primary)] flex items-center justify-center p-6 relative">

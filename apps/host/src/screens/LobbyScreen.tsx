@@ -7,8 +7,8 @@ export function LobbyScreen() {
   const participants = useHostStore(state => state.participants);
   const startSession = useHostStore(state => state.startSession);
 
-  const joinUrl = `${import.meta.env.VITE_PLAY_APP_URL || "http://localhost:5173"}?room=${roomCode}`;
-  const displayUrl = (import.meta.env.VITE_PLAY_APP_URL || "http://localhost:5173").replace(/^https?:\/\//, "");
+  const joinUrl = `${import.meta.env.VITE_PLAY_APP_URL || "https://brain-buzz-play.vercel.app"}?room=${roomCode}`;
+  const displayUrl = (import.meta.env.VITE_PLAY_APP_URL || "https://brain-buzz-play.vercel.app").replace(/^https?:\/\//, "");
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] text-center">

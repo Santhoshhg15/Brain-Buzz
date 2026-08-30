@@ -6,7 +6,7 @@ export function LobbyDisplayScreen() {
   const quizTitle = useDisplayStore(state => state.quizTitle);
   const participants = useDisplayStore(state => state.participants);
 
-  const joinUrl = `${import.meta.env.VITE_PLAY_APP_URL || "http://localhost:5173"}?room=${roomCode}`;
+  const joinUrl = `${import.meta.env.VITE_PLAY_APP_URL || "https://brain-buzz-play.vercel.app"}?room=${roomCode}`;
 
   return (
     <div className="flex flex-col items-center w-full min-h-screen bg-[var(--color-surface)] py-12 px-8 sm:px-16 md:px-24 overflow-y-auto">
