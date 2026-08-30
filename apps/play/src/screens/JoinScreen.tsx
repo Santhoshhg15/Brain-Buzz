@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { usePlayStore } from "../store/playStore";
 
 export function JoinScreen() {
@@ -7,6 +8,20 @@ export function JoinScreen() {
   const setStudentName = usePlayStore(state => state.setStudentName);
   const joinRoom = usePlayStore(state => state.joinRoom);
   const joinError = usePlayStore(state => state.joinError);
+
+  const nicknameRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const roomParam = params.get("room");
+    if (roomParam) {
+      setRoomCode(roomParam.toUpperCase());
+      // Focus nickname input since room code is prefilled
+      setTimeout(() => {
+        nicknameRef.current?.focus();
+      }, 50);
+    }
+  }, [setRoomCode]);
 
   const canJoin = roomCode.trim().length > 0 && studentName.trim().length > 0;
 
@@ -51,6 +66,7 @@ export function JoinScreen() {
             </label>
             <input
               id="studentName"
+              ref={nicknameRef}
               type="text"
               value={studentName}
               onChange={(e) => setStudentName(e.target.value)}

@@ -1,3 +1,4 @@
+import { QRCodeSVG } from "qrcode.react";
 import { useHostStore } from "../store/hostStore";
 import { haptics } from "../utils/haptics";
 
@@ -6,14 +7,25 @@ export function LobbyScreen() {
   const participants = useHostStore(state => state.participants);
   const startSession = useHostStore(state => state.startSession);
 
+  const joinUrl = `${import.meta.env.VITE_PLAY_APP_URL || "http://localhost:5173"}?room=${roomCode}`;
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] text-center">
-      <div className="bg-[var(--color-surface-elevated)] p-12 rounded-2xl shadow-xl border border-[var(--color-border)] mb-12 w-full max-w-2xl">
-        <h2 className="text-2xl text-[var(--color-text-secondary)] font-semibold mb-2">Join at</h2>
-        <div className="text-4xl font-heading font-bold text-[var(--color-text-primary)] mb-6">java-quiz.live</div>
-        <div className="text-xl text-[var(--color-text-secondary)] mb-2">with Room Code</div>
-        <div className="text-7xl font-mono font-black text-[var(--color-accent)] bg-[var(--color-surface)] px-6 py-2 rounded-xl tracking-widest uppercase inline-block mt-4">
-          {roomCode}
+      <div className="bg-[var(--color-surface-elevated)] p-10 rounded-2xl shadow-xl border border-[var(--color-border)] mb-12 w-full max-w-3xl flex flex-col md:flex-row items-center justify-between gap-10">
+        <div className="flex-1 text-center md:text-left">
+          <h2 className="text-2xl text-[var(--color-text-secondary)] font-semibold mb-2">Join at</h2>
+          <div className="text-4xl font-heading font-bold text-[var(--color-text-primary)] mb-6">java-quiz.live</div>
+          <div className="text-xl text-[var(--color-text-secondary)] mb-2">with Room Code</div>
+          <div className="text-6xl md:text-7xl font-mono font-black text-[var(--color-accent)] bg-[var(--color-surface)] px-6 py-2 rounded-xl tracking-widest uppercase inline-block mt-4">
+            {roomCode}
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center gap-3 bg-[var(--color-surface)] p-5 rounded-xl border border-[var(--color-border)] shadow-sm">
+          <div className="p-2 bg-white rounded-lg">
+            <QRCodeSVG value={joinUrl} size={140} />
+          </div>
+          <span className="text-sm font-semibold text-[var(--color-text-secondary)]">Or scan to join</span>
         </div>
       </div>
 

@@ -1,3 +1,4 @@
+import { QRCodeSVG } from "qrcode.react";
 import { useDisplayStore } from "../store/displayStore";
 
 export function LobbyDisplayScreen() {
@@ -5,14 +6,16 @@ export function LobbyDisplayScreen() {
   const quizTitle = useDisplayStore(state => state.quizTitle);
   const participants = useDisplayStore(state => state.participants);
 
+  const joinUrl = `${import.meta.env.VITE_PLAY_APP_URL || "http://localhost:5173"}?room=${roomCode}`;
+
   return (
     <div className="flex flex-col items-center w-full min-h-screen bg-[var(--color-surface)] py-12 px-8 sm:px-16 md:px-24 overflow-y-auto">
       <div className="w-full max-w-7xl mx-auto flex flex-col items-center">
         {/* Top Banner */}
-        <div className="w-full bg-[var(--color-surface-elevated)] rounded-2xl shadow-2xl p-10 lg:p-14 flex flex-col md:flex-row items-center justify-between border-4 border-indigo-50 mb-12 relative overflow-hidden">
+        <div className="w-full bg-[var(--color-surface-elevated)] rounded-2xl shadow-2xl p-10 lg:p-14 flex flex-col xl:flex-row items-center justify-between border-4 border-indigo-50 mb-12 relative overflow-hidden gap-8">
           <div className="absolute top-0 left-0 w-full h-3 lg:h-4 bg-[var(--color-accent)]"></div>
           
-          <div className="flex flex-col max-w-2xl text-center md:text-left mb-8 md:mb-0">
+          <div className="flex flex-col max-w-xl text-center xl:text-left mb-8 xl:mb-0">
             <h2 className="text-xl lg:text-2xl font-heading font-bold text-[var(--color-text-secondary)] uppercase tracking-widest mb-3">
               Join the Quiz:
             </h2>
@@ -21,10 +24,19 @@ export function LobbyDisplayScreen() {
             </h1>
           </div>
 
-          <div className="flex flex-col items-center bg-[var(--color-surface)] p-8 rounded-2xl border border-[var(--color-border)] shadow-inner">
-            <span className="text-xl lg:text-2xl font-heading font-bold text-[var(--color-accent)] mb-2">Room Code</span>
-            <div className="text-6xl lg:text-7xl font-mono font-black text-[var(--color-accent)] tracking-widest bg-[var(--color-surface)] px-6 py-2 rounded-2xl leading-none drop-shadow-md">
-              {roomCode}
+          <div className="flex flex-col sm:flex-row items-center gap-8 bg-[var(--color-surface)] p-8 rounded-2xl border border-[var(--color-border)] shadow-inner w-full xl:w-auto justify-center">
+            <div className="flex flex-col items-center text-center">
+              <span className="text-xl lg:text-2xl font-heading font-bold text-[var(--color-accent)] mb-2">Room Code</span>
+              <div className="text-5xl lg:text-6xl font-mono font-black text-[var(--color-accent)] tracking-widest bg-[var(--color-surface)] px-6 py-4 rounded-2xl leading-none drop-shadow-md uppercase">
+                {roomCode}
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center gap-3">
+              <div className="p-3 bg-white rounded-xl shadow-md border border-gray-100">
+                <QRCodeSVG value={joinUrl} size={240} />
+              </div>
+              <span className="text-xl font-bold text-[var(--color-text-secondary)]">Scan to join</span>
             </div>
           </div>
         </div>
