@@ -8,13 +8,14 @@ export function LobbyScreen() {
   const startSession = useHostStore(state => state.startSession);
 
   const joinUrl = `${import.meta.env.VITE_PLAY_APP_URL || "http://localhost:5173"}?room=${roomCode}`;
+  const displayUrl = (import.meta.env.VITE_PLAY_APP_URL || "http://localhost:5173").replace(/^https?:\/\//, "");
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] text-center">
       <div className="bg-[var(--color-surface-elevated)] p-10 rounded-2xl shadow-xl border border-[var(--color-border)] mb-12 w-full max-w-3xl flex flex-col md:flex-row items-center justify-between gap-10">
         <div className="flex-1 text-center md:text-left">
           <h2 className="text-2xl text-[var(--color-text-secondary)] font-semibold mb-2">Join at</h2>
-          <div className="text-4xl font-heading font-bold text-[var(--color-text-primary)] mb-6">java-quiz.live</div>
+          <div className="text-4xl font-heading font-bold text-[var(--color-text-primary)] mb-6">{displayUrl}</div>
           <div className="text-xl text-[var(--color-text-secondary)] mb-2">with Room Code</div>
           <div className="text-6xl md:text-7xl font-mono font-black text-[var(--color-accent)] bg-[var(--color-surface)] px-6 py-2 rounded-xl tracking-widest uppercase inline-block mt-4">
             {roomCode}
