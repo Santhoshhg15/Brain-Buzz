@@ -291,6 +291,48 @@ router.post("/quizzes/:id/questions", requireAuth, async (req: Request, res: Res
   }
 });
 
+// 5.4 PATCH /api/quizzes/:id/questions/apply-all
+router.patch("/quizzes/:id/questions/apply-all", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { durationSeconds, points } = req.body;
+
+    const hasDuration = durationSeconds !== undefined;
+    const hasPoints = points !== undefined;
+
+    if (!hasDuration && !hasPoints) {
+      res.status(400).json({ error: "Provide at least one of durationSeconds or points." });
+      return;
+    }
+    if (hasDuration && (!Number.isInteger(durationSeconds) || durationSeconds < 5 || durationSeconds > 120)) {
+      res.status(400).json({ error: "durationSeconds must be a positive integer between 5 and 120" });
+      return;
+    }
+    if (hasPoints && (!Number.isInteger(points) || points <= 0)) {
+      res.status(400).json({ error: "points must be a positive integer" });
+      return;
+    }
+
+    const quiz = await prisma.quiz.findUnique({ where: { id } });
+    if (!quiz) {
+      res.status(404).json({ error: "Quiz not found" });
+      return;
+    }
+
+    const result = await prisma.question.updateMany({
+      where: { quizId: id },
+      data: {
+        ...(hasDuration && { durationSeconds }),
+        ...(hasPoints && { points }),
+      },
+    });
+
+    res.json({ updated: result.count });
+  } catch (error) {
+    handleError(res, "Error applying to all questions:", error);
+  }
+});
+
 // 5.5 POST /api/quizzes/:id/questions/bulk
 router.post("/quizzes/:id/questions/bulk", requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {

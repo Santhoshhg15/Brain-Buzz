@@ -6,6 +6,7 @@ import cors from "cors";
 import { ClientToServerEvents, ServerToClientEvents } from "@quiz/shared-types";
 import quizRoutes from "./routes/quizRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import sessionRoutes from "./routes/sessionRoutes.js";
 import { registerSocketHandlers } from "./socket/socketHandlers.js";
 
 const app = express();
@@ -27,6 +28,7 @@ app.use(express.json({ limit: "10mb" }));
 
 app.use("/api", quizRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/sessions", sessionRoutes);
 
 const httpServer = http.createServer(app);
 

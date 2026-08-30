@@ -1,3 +1,4 @@
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -24,6 +25,7 @@ model Question {
   durationSeconds Int
   points          Int
   options         Option[]
+  answers         Answer[]
 }
 
 model Option {
@@ -35,12 +37,15 @@ model Option {
   orderIndex Int
 }
 
+// LOBBY | LIVE | PAUSED | ENDED | INTERRUPTED
 model Session {
   id           String        @id @default(cuid())
   quizId       String
   quiz         Quiz          @relation(fields: [quizId], references: [id])
+  instructorId String
+  instructor   Instructor    @relation(fields: [instructorId], references: [id])
   roomCode     String        @unique
-  status       String        @default("LOBBY") // LOBBY, LIVE, ENDED
+  status       String        @default("LOBBY")
   createdAt    DateTime      @default(now())
   participants Participant[]
 }
@@ -58,7 +63,8 @@ model Answer {
   id            String      @id @default(cuid())
   participantId String
   participant   Participant @relation(fields: [participantId], references: [id])
-  questionId    String
+  questionId    String?
+  question      Question?   @relation(fields: [questionId], references: [id])
   optionId      String
   isCorrect     Boolean
   pointsAwarded Int
@@ -66,9 +72,10 @@ model Answer {
 }
 
 model Instructor {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String    @id @default(cuid())
+  email        String    @unique
   passwordHash String
   name         String
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
+  sessions     Session[]
 }

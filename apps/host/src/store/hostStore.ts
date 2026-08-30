@@ -40,6 +40,7 @@ interface HostStore {
   revealData: { correctOptionId: string; optionCounts: Record<string, number> } | null;
   leaderboard: LeaderboardEntry[];
   sessionError: string | null;
+  creatingRoomId: string | null;
   
   // Actions
   initSocket: () => void;
@@ -66,6 +67,7 @@ export const useHostStore = create<HostStore>((set, get) => ({
   revealData: null,
   leaderboard: [],
   sessionError: null,
+  creatingRoomId: null,
 
   initSocket: () => {
     const token = useAuthStore.getState().token;
@@ -128,12 +130,14 @@ export const useHostStore = create<HostStore>((set, get) => ({
   },
 
   createRoom: (quizId: string) => {
-    const { socket } = get();
-    if (!socket) return;
+    const { socket, creatingRoomId } = get();
+    if (!socket || creatingRoomId) return; // Prevent double clicks
     
+    set({ creatingRoomId: quizId, sessionError: null });
+
     socket.emit("room:create", { quizId }, (res) => {
       if (res.error) {
-        set({ sessionError: res.error });
+        set({ sessionError: res.error, creatingRoomId: null });
         return;
       }
       set({
@@ -142,7 +146,8 @@ export const useHostStore = create<HostStore>((set, get) => ({
         roomCode: res.roomCode || null,
         screen: "LOBBY",
         participants: [],
-        sessionError: null
+        sessionError: null,
+        creatingRoomId: null
       });
     });
   },
@@ -182,7 +187,8 @@ export const useHostStore = create<HostStore>((set, get) => ({
       currentQuestion: null,
       revealData: null,
       leaderboard: [],
-      sessionError: null
+      sessionError: null,
+      creatingRoomId: null
     });
   },
 

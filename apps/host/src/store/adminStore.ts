@@ -40,6 +40,7 @@ export interface AdminStore {
   deleteQuiz: (quizId: string) => Promise<boolean>;
   addQuestion: (quizId: string, questionData: any) => Promise<void>;
   bulkImportQuestions: (quizId: string, questions: any[]) => Promise<{ success: boolean; count?: number; error?: string; details?: any[] }>;
+  applyToAllQuestions: (quizId: string, updates: { durationSeconds?: number; points?: number }) => Promise<{ success: boolean; updated?: number; error?: string }>;
   updateQuestion: (questionId: string, updates: any) => Promise<void>;
   deleteQuestion: (questionId: string) => Promise<void>;
   updateOption: (optionId: string, updates: any) => Promise<void>;
@@ -175,6 +176,22 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       return { success: true, count: data.created };
     } catch (e: any) {
       set({ loading: false });
+      return { success: false, error: e.message || "Network error" };
+    }
+  },
+
+  applyToAllQuestions: async (quizId, updates) => {
+    try {
+      const res = await authFetch(`${API_BASE}/quizzes/${quizId}/questions/apply-all`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      const data = await res.json();
+      if (!res.ok) return { success: false, error: data.error || "Failed to apply changes" };
+      await get().fetchQuizDetail(quizId);
+      return { success: true, updated: data.updated };
+    } catch (e: any) {
       return { success: false, error: e.message || "Network error" };
     }
   },
