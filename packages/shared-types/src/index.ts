@@ -1,8 +1,8 @@
 export interface ParticipantData {
   id: string;
   name: string;
-  score: string | number;
-  rank?: number;
+  score: number;
+  rank: number;
 }
 
 export interface QuestionData {
