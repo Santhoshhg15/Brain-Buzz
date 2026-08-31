@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useAdminStore } from "../../store/adminStore";
 import { CheckCircle2 } from "lucide-react";
+import { RippleButton } from "../RippleButton";
 
 interface BulkImportPanelProps {
   quizId: string;
@@ -35,6 +36,7 @@ export function BulkImportPanel({ quizId, onSuccess, onClose }: BulkImportPanelP
           text: "Which keyword is used to prevent a class from being subclassed in Java?",
           durationSeconds: 20,
           points: 1000,
+          explanation: "'final' prevents a class from being subclassed, which is useful for immutable or security-critical classes.",
           options: [
             { text: "final", isCorrect: true },
             { text: "static", isCorrect: false },
@@ -159,12 +161,12 @@ export function BulkImportPanel({ quizId, onSuccess, onClose }: BulkImportPanelP
       )}
 
       <div className="flex flex-wrap gap-4 mb-4">
-        <button 
+        <RippleButton 
           onClick={handleDownloadTemplate}
           className="px-4 py-2 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl font-bold text-sm text-[var(--color-text-primary)] hover:opacity-80 transition-opacity"
         >
           Download Sample Template
-        </button>
+        </RippleButton>
         <div className="relative inline-block">
           <input 
             type="file" 
@@ -247,20 +249,20 @@ export function BulkImportPanel({ quizId, onSuccess, onClose }: BulkImportPanelP
 
       <div className="flex gap-4 justify-end">
         {!previewQuestions ? (
-          <button
+          <RippleButton
             onClick={handleValidate}
             className="px-6 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-bold rounded-xl shadow-md transition-colors"
           >
             Validate & Preview
-          </button>
+          </RippleButton>
         ) : (
-          <button
+          <RippleButton
             onClick={handleImport}
             disabled={isImporting}
             className="px-6 py-3 bg-[var(--color-success)] hover:bg-[#16a34a] text-white font-bold rounded-xl shadow-md transition-colors disabled:opacity-50"
           >
             {isImporting ? "Importing..." : "Import Questions"}
-          </button>
+          </RippleButton>
         )}
       </div>
     </div>

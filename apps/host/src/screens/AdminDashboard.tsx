@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdminStore } from "../store/adminStore";
+import { RippleButton } from "../components/RippleButton";
 
 export function AdminDashboard() {
   const fetchQuizzes = useAdminStore((state) => state.fetchQuizzes);
@@ -45,12 +46,12 @@ export function AdminDashboard() {
       <div className="flex justify-between items-center w-full mb-8">
         <h2 className="text-3xl font-heading font-bold text-[var(--color-text-primary)]">Manage Quizzes</h2>
         {!creating && (
-          <button
+          <RippleButton
             onClick={() => { clearFormError(); setCreating(true); }}
-            className="bg-[var(--color-accent)] text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-[var(--color-accent-hover)] transition-all ease-[var(--ease-smooth)] active:scale-95"
+            className="btn-primary rounded-full"
           >
             + Create New Quiz
-          </button>
+          </RippleButton>
         )}
       </div>
 
@@ -73,20 +74,20 @@ export function AdminDashboard() {
               onChange={(e) => setNewTitle(e.target.value)}
               className="flex-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl px-4 py-3 text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/20 transition-all font-semibold"
             />
-            <button
+            <RippleButton
               type="submit"
               disabled={loading || !newTitle.trim()}
-              className="bg-[var(--color-success)] text-white px-6 py-3 rounded-xl font-bold hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary"
             >
               {loading ? "Creating..." : "Create"}
-            </button>
-            <button
+            </RippleButton>
+            <RippleButton
               type="button"
               onClick={() => { setCreating(false); clearFormError(); }}
-              className="text-[var(--color-text-secondary)] font-semibold px-4 hover:text-[var(--color-text-primary)]"
+              className="btn-secondary"
             >
               Cancel
-            </button>
+            </RippleButton>
           </form>
         </div>
       )}
@@ -118,39 +119,39 @@ export function AdminDashboard() {
                 <div className="flex flex-col gap-2 bg-[var(--color-error-bg)]/50 p-3 rounded-xl animate-[screenEnter_200ms_var(--ease-out-expo)]">
                   <p className="text-sm font-bold text-[var(--color-error)] text-center">Are you sure?</p>
                   <div className="flex gap-2">
-                    <button 
+                    <RippleButton 
                       onClick={() => handleDelete(quiz.id)}
                       disabled={loading}
-                      className="flex-1 bg-[var(--color-error)] text-white py-2 rounded-xl font-bold hover:bg-red-800 transition-colors disabled:opacity-50"
+                      className="flex-1 btn-danger py-2"
                     >
                       Yes, Delete
-                    </button>
-                    <button 
+                    </RippleButton>
+                    <RippleButton 
                       onClick={() => { setDeletingId(null); clearFormError(); }}
                       disabled={loading}
-                      className="flex-1 bg-[var(--color-surface)] text-[var(--color-text-primary)] py-2 rounded-xl font-bold hover:bg-[var(--color-border)] transition-colors"
+                      className="flex-1 btn-secondary py-2"
                     >
                       Cancel
-                    </button>
+                    </RippleButton>
                   </div>
                 </div>
               ) : (
                 <div className="flex gap-3">
-                  <button 
+                  <RippleButton 
                     onClick={() => navigate(`/admin/quizzes/${quiz.id}`)}
-                    className="flex-1 bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-primary)] py-3 rounded-xl font-bold hover:bg-[var(--color-border)]/50 hover:border-[var(--color-text-secondary)] transition-all ease-[var(--ease-smooth)] active:scale-95"
+                    className="flex-1 btn-secondary"
                   >
                     Edit Questions
-                  </button>
-                  <button 
+                  </RippleButton>
+                  <RippleButton 
                     onClick={() => setDeletingId(quiz.id)}
-                    className="w-12 flex items-center justify-center bg-[var(--color-error-bg)] text-[var(--color-error)] rounded-xl hover:bg-[var(--color-error)] hover:text-white transition-all active:scale-95"
+                    className="w-12 btn-danger !p-0"
                     title="Delete Quiz"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
-                  </button>
+                  </RippleButton>
                 </div>
               )}
             </div>

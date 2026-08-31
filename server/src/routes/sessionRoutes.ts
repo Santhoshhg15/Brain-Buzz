@@ -123,4 +123,110 @@ router.get("/:sessionId/scores", requireAuth, async (req: Request, res: Response
   }
 });
 
+/**
+ * GET /api/sessions/:sessionId/participants/:participantId/report
+ * Return full performance metrics for a specific participant in a session.
+ * Does not require authentication (student-facing).
+ */
+router.get("/:sessionId/participants/:participantId/report", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { sessionId, participantId } = req.params;
+
+    // 1. Verify participant exists and belongs to this session
+    const participant = await prisma.participant.findFirst({
+      where: { id: participantId, sessionId },
+      include: {
+        answers: {
+          include: { question: true }
+        }
+      }
+    });
+
+    if (!participant) {
+      res.status(404).json({ error: "Participant not found in this session" });
+      return;
+    }
+
+    // 2. Fetch session and all participants for leaderboard/totals
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+      include: {
+        quiz: {
+          include: {
+            _count: { select: { questions: true } }
+          }
+        },
+        participants: {
+          select: { id: true, score: true },
+          orderBy: { score: "desc" }
+        }
+      }
+    });
+
+    if (!session) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
+
+    const totalQuestions = session.quiz._count.questions;
+    const answeredCount = participant.answers.length;
+    const unansweredCount = Math.max(0, totalQuestions - answeredCount);
+    
+    let correctCount = 0;
+    let wrongCount = 0;
+    
+    let minMs: number | null = null;
+    let maxMs: number | null = null;
+    let totalMs = 0;
+    let countWithMs = 0;
+
+    const perQuestionBreakdown = participant.answers.map(ans => {
+      if (ans.isCorrect) correctCount++;
+      else wrongCount++;
+
+      if (ans.responseTimeMs !== null) {
+        if (minMs === null || ans.responseTimeMs < minMs) minMs = ans.responseTimeMs;
+        if (maxMs === null || ans.responseTimeMs > maxMs) maxMs = ans.responseTimeMs;
+        totalMs += ans.responseTimeMs;
+        countWithMs++;
+      }
+
+      return {
+        questionText: ans.question?.text || "Unknown Question",
+        isCorrect: ans.isCorrect,
+        responseTimeMs: ans.responseTimeMs,
+        pointsAwarded: ans.pointsAwarded
+      };
+    });
+
+    const accuracyPercent = answeredCount > 0 ? Math.round((correctCount / answeredCount) * 1000) / 10 : 0;
+    
+    const avgMs = countWithMs > 0 ? Math.round(totalMs / countWithMs) : null;
+    
+    const finalRank = session.participants.findIndex(p => p.id === participantId) + 1;
+
+    res.json({
+      totalQuestions,
+      answeredCount,
+      unansweredCount,
+      correctCount,
+      wrongCount,
+      accuracyPercent,
+      finalScore: participant.score,
+      finalRank,
+      totalParticipants: session.participants.length,
+      responseTimeStats: countWithMs > 0 ? {
+        minMs,
+        maxMs,
+        avgMs,
+        totalMs
+      } : null,
+      perQuestionBreakdown
+    });
+  } catch (error) {
+    console.error("Error fetching participant report:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;

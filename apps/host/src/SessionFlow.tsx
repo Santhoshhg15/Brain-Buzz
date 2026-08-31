@@ -6,6 +6,7 @@ import { LiveQuestionScreen } from "./screens/LiveQuestionScreen";
 import { RevealScreen } from "./screens/RevealScreen";
 import { EndedScreen } from "./screens/EndedScreen";
 import { ThemeToggle } from "./components/ThemeToggle";
+import { RippleButton } from "./components/RippleButton";
 
 export function SessionFlow() {
   const screen = useHostStore(state => state.screen);
@@ -44,12 +45,12 @@ export function SessionFlow() {
                 Signed in as <span className="text-[var(--color-text-primary)] font-bold">{instructorName}</span>
               </span>
               <ThemeToggle />
-              <button
+              <RippleButton
                 onClick={logout}
                 className="text-xs font-bold px-3 py-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-error)]/40 hover:bg-[var(--color-error-bg)]/30 hover:text-[var(--color-error)] text-[var(--color-text-secondary)] rounded-xl transition-all duration-200 cursor-pointer active:scale-[0.97]"
               >
                 Log out
-              </button>
+              </RippleButton>
             </div>
           )}
         </div>

@@ -26,6 +26,7 @@ model Question {
   points          Int
   options         Option[]
   answers         Answer[]
+  explanation     String?
 }
 
 model Option {
@@ -68,6 +69,7 @@ model Answer {
   optionId      String
   isCorrect     Boolean
   pointsAwarded Int
+  responseTimeMs Int?
   answeredAt    DateTime    @default(now())
 }
 

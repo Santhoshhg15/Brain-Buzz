@@ -3,11 +3,21 @@ import { ParticipantData, QuestionData, QuestionRevealPayload } from "@quiz/shar
 
 const prisma = new PrismaClient();
 
+export const DISCONNECT_GRACE_PERIOD_MS = 30000;
+
 export interface SessionParticipant {
   id: string;
   name: string;
   socketId: string;
   score: number;
+  connectionStatus: "connected" | "reconnecting";
+  disconnectGraceTimer: NodeJS.Timeout | null;
+  currentStreak: number;
+  longestStreak: number;
+  answersCorrect: number;
+  answersTotal: number;
+  streakBonusApplied?: boolean;
+  accuracyBonusApplied?: number;
 }
 
 export interface SessionAnswer {
@@ -102,13 +112,64 @@ export function getSessionById(sessionId: string): SessionState | undefined {
 export function addParticipant(roomCode: string, participantId: string, name: string, socketId: string): void {
   const session = sessionsByRoomCode.get(roomCode);
   if (session) {
-    session.participants.set(participantId, { id: participantId, name, socketId, score: 0 });
+    session.participants.set(participantId, { 
+      id: participantId, 
+      name, 
+      socketId, 
+      score: 0,
+      connectionStatus: "connected",
+      disconnectGraceTimer: null,
+      currentStreak: 0,
+      longestStreak: 0,
+      answersCorrect: 0,
+      answersTotal: 0
+    });
     session.lastActivityAt = Date.now();
   }
 }
 
 export function findParticipant(roomCode: string, participantId: string): SessionParticipant | undefined {
   return sessionsByRoomCode.get(roomCode)?.participants.get(participantId);
+}
+
+export function findParticipantBySocketId(socketId: string): { session: SessionState; participant: SessionParticipant } | null {
+  for (const session of sessionsByRoomCode.values()) {
+    for (const participant of session.participants.values()) {
+      if (participant.socketId === socketId) {
+        return { session, participant };
+      }
+    }
+  }
+  return null;
+}
+
+export function markParticipantDisconnected(roomCode: string, participantId: string): void {
+  const participant = sessionsByRoomCode.get(roomCode)?.participants.get(participantId);
+  if (participant) {
+    participant.connectionStatus = "reconnecting";
+  }
+}
+
+export function markParticipantReconnected(roomCode: string, participantId: string): void {
+  const participant = sessionsByRoomCode.get(roomCode)?.participants.get(participantId);
+  if (participant) {
+    participant.connectionStatus = "connected";
+    if (participant.disconnectGraceTimer) {
+      clearTimeout(participant.disconnectGraceTimer);
+      participant.disconnectGraceTimer = null;
+    }
+  }
+}
+
+export function removeParticipantPermanently(roomCode: string, participantId: string): void {
+  const session = sessionsByRoomCode.get(roomCode);
+  if (session) {
+    const participant = session.participants.get(participantId);
+    if (participant && participant.disconnectGraceTimer) {
+      clearTimeout(participant.disconnectGraceTimer);
+    }
+    session.participants.delete(participantId);
+  }
 }
 
 export function updateParticipantSocketId(roomCode: string, participantId: string, newSocketId: string): void {
@@ -172,23 +233,75 @@ export function recordAnswer(roomCode: string, participantId: string, optionId: 
 export function calculateScoreForAnswer(
   session: SessionState,
   participantId: string
-): { points: number; isCorrect: boolean } {
+): { points: number; isCorrect: boolean; currentStreak: number } {
   const answer = session.currentQuestionAnswers.get(participantId);
-  if (!answer) return { points: 0, isCorrect: false };
+  const participant = session.participants.get(participantId);
+  
+  if (!participant) return { points: 0, isCorrect: false, currentStreak: 0 };
+  
+  if (!answer) {
+    participant.currentStreak = 0;
+    return { points: 0, isCorrect: false, currentStreak: 0 };
+  }
+  
+  participant.answersTotal++;
 
   const question = session.questions[session.currentQuestionIndex];
   const option = question.options.find((o: any) => o.id === answer.optionId);
-  if (!option || !option.isCorrect) return { points: 0, isCorrect: false };
+  if (!option || !option.isCorrect) {
+    participant.currentStreak = 0;
+    return { points: 0, isCorrect: false, currentStreak: 0 };
+  }
+
+  participant.answersCorrect++;
+  participant.currentStreak++;
+  if (participant.currentStreak > participant.longestStreak) {
+    participant.longestStreak = participant.currentStreak;
+  }
 
   const basePoints = question.points;
+  const accuracyBase = Math.floor(basePoints * 0.70);
+  const maxSpeedBonus = basePoints - accuracyBase;
+
   const totalDurationMs = question.durationSeconds * 1000;
   let remainingTimeMs = totalDurationMs - (answer.answeredAtMs - session.questionStartTimeMs);
   if (remainingTimeMs < 0) remainingTimeMs = 0;
-  let points = Math.round(basePoints * (remainingTimeMs / totalDurationMs));
-  const minPoints = Math.floor(0.1 * basePoints);
-  if (points < minPoints) points = minPoints;
+  
+  let speedBonus = Math.round(maxSpeedBonus * (remainingTimeMs / totalDurationMs));
+  let points = accuracyBase + speedBonus;
+  
+  let streakMultiplier = 0;
+  if (participant.currentStreak >= 7) {
+    streakMultiplier = 0.15;
+  } else if (participant.currentStreak >= 5) {
+    streakMultiplier = 0.10;
+  } else if (participant.currentStreak >= 3) {
+    streakMultiplier = 0.05;
+  }
+  
+  if (streakMultiplier > 0) {
+    points = Math.round(points * (1 + streakMultiplier));
+    participant.streakBonusApplied = true;
+  }
 
-  return { points, isCorrect: true };
+  return { points, isCorrect: true, currentStreak: participant.currentStreak };
+}
+
+export const ACCURACY_BONUS_90 = 500;
+export const ACCURACY_BONUS_75 = 250;
+export const ACCURACY_BONUS_60 = 100;
+
+export function calculateAccuracyBonus(session: SessionState, participantId: string): number {
+  const participant = session.participants.get(participantId);
+  if (!participant || participant.answersTotal === 0) return 0;
+  
+  const accuracy = participant.answersCorrect / participant.answersTotal;
+  
+  if (accuracy >= 0.90) return ACCURACY_BONUS_90;
+  if (accuracy >= 0.75) return ACCURACY_BONUS_75;
+  if (accuracy >= 0.60) return ACCURACY_BONUS_60;
+  
+  return 0;
 }
 
 export function getLeaderboard(roomCode: string): ParticipantData[] {
@@ -196,7 +309,15 @@ export function getLeaderboard(roomCode: string): ParticipantData[] {
   if (!session) return [];
   const participants = Array.from(session.participants.values());
   participants.sort((a, b) => b.score - a.score);
-  return participants.map((p, index) => ({ id: p.id, name: p.name, score: p.score, rank: index + 1 }));
+  return participants.map((p, index) => ({ 
+    id: p.id, 
+    name: p.name, 
+    score: p.score, 
+    rank: index + 1,
+    streakBonusApplied: p.streakBonusApplied,
+    accuracyBonusApplied: p.accuracyBonusApplied,
+    currentStreak: p.currentStreak
+  }));
 }
 
 // ─── Pause / Resume ────────────────────────────────────────────────────────────
@@ -274,6 +395,12 @@ export async function restartSessionSame(roomCode: string): Promise<void> {
 
   for (const participant of session.participants.values()) {
     participant.score = 0;
+    participant.currentStreak = 0;
+    participant.longestStreak = 0;
+    participant.answersCorrect = 0;
+    participant.answersTotal = 0;
+    participant.streakBonusApplied = undefined;
+    participant.accuracyBonusApplied = undefined;
   }
   session.currentQuestionAnswers.clear();
   session.currentQuestionIndex = -1;

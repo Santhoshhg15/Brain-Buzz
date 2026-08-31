@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useAdminStore } from "../../store/adminStore";
+import { RippleButton } from "../RippleButton";
 
 export interface QuestionFormData {
   text: string;
   durationSeconds: number;
   points: number;
+  explanation?: string;
   options: { text: string; isCorrect: boolean }[];
 }
 
@@ -22,6 +24,7 @@ export function QuestionForm({ initialValues, onSubmit, onCancel, isSubmitting }
   const [text, setText] = useState(initialValues?.text || "");
   const [duration, setDuration] = useState(initialValues?.durationSeconds?.toString() || "20");
   const [points, setPoints] = useState(initialValues?.points?.toString() || "1000");
+  const [explanation, setExplanation] = useState(initialValues?.explanation || "");
   const [options, setOptions] = useState<{ text: string; isCorrect: boolean }[]>(
     initialValues?.options || [
       { text: "", isCorrect: false },
@@ -77,6 +80,10 @@ export function QuestionForm({ initialValues, onSubmit, onCancel, isSubmitting }
       setLocalError("Exactly one option must be marked as correct.");
       return;
     }
+    if (explanation.trim().length > 1000) {
+      setLocalError("Explanation cannot exceed 1000 characters.");
+      return;
+    }
 
     setLocalError(null);
 
@@ -84,6 +91,7 @@ export function QuestionForm({ initialValues, onSubmit, onCancel, isSubmitting }
       text: text.trim(),
       durationSeconds: durNum,
       points: ptNum,
+      explanation: explanation.trim() || undefined,
       options: options.map(opt => ({ text: opt.text.trim(), isCorrect: opt.isCorrect }))
     });
   };
@@ -158,22 +166,33 @@ export function QuestionForm({ initialValues, onSubmit, onCancel, isSubmitting }
         </div>
       </div>
 
+      <div className="mb-8">
+        <label className="block text-sm font-bold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wide">Explanation (optional)</label>
+        <p className="text-xs text-[var(--color-text-secondary)] mb-3">Shown to students after they answer — explain why the correct answer is right.</p>
+        <textarea
+          value={explanation}
+          onChange={(e) => { setExplanation(e.target.value); if (localError) setLocalError(null); }}
+          className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl px-4 py-3 text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/20 transition-all font-semibold resize-none h-20"
+          placeholder="e.g. 'final' prevents a class from being subclassed, which is useful for immutable or security-critical classes."
+        />
+      </div>
+
       <div className="flex justify-end gap-3">
-        <button
+        <RippleButton
           type="button"
           onClick={onCancel}
           disabled={isSubmitting}
           className="bg-[var(--color-surface)] text-[var(--color-text-primary)] px-6 py-3 rounded-xl font-bold hover:bg-[var(--color-border)] transition-colors disabled:opacity-50"
         >
           Cancel
-        </button>
-        <button
+        </RippleButton>
+        <RippleButton
           type="submit"
           disabled={isSubmitting}
           className="bg-[var(--color-accent)] text-white px-8 py-3 rounded-xl font-bold hover:bg-[var(--color-accent-hover)] shadow-md transition-all ease-[var(--ease-smooth)] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? "Saving..." : "Save Question"}
-        </button>
+        </RippleButton>
       </div>
     </form>
   );

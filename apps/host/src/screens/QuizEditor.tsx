@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useAdminStore } from "../store/adminStore";
+import { RippleButton } from "../components/RippleButton";
 import { QuestionCard } from "../components/admin/QuestionCard";
 import { QuestionForm } from "../components/admin/QuestionForm";
 import { BulkImportPanel } from "../components/admin/BulkImportPanel";
@@ -102,21 +103,21 @@ function ApplyControl({ label, unit, placeholder, validate, onApply, questionCou
             <span className="text-xs font-bold text-[var(--color-text-secondary)]">
               Overwrite {questionCount} question{questionCount === 1 ? "" : "s"}?
             </span>
-            <button
+            <RippleButton
               onClick={handleConfirm}
-              className="px-3 py-1 bg-[var(--color-accent)] text-white text-xs font-bold rounded-lg hover:bg-[var(--color-accent-hover)] transition-colors active:scale-95"
+              className="px-3 py-1 bg-[var(--color-accent)] text-white text-xs font-bold rounded-lg hover:bg-[var(--color-accent-hover)] transition-colors active:scale-95 animate-[popIn_100ms_ease]"
             >
               Confirm
-            </button>
-            <button
+            </RippleButton>
+            <RippleButton
               onClick={handleCancel}
               className="px-3 py-1 bg-[var(--color-surface-elevated)] border border-[var(--color-border)] text-[var(--color-text-secondary)] text-xs font-bold rounded-lg hover:bg-[var(--color-border)] transition-colors"
             >
               Cancel
-            </button>
+            </RippleButton>
           </div>
         ) : (
-          <button
+          <RippleButton
             onClick={handleApplyClick}
             disabled={!isValid || isLoading}
             className="px-4 py-2 bg-[var(--color-surface-elevated)] border border-[var(--color-border)] text-[var(--color-text-primary)] text-xs font-bold rounded-xl hover:bg-[var(--color-surface)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[var(--color-surface-elevated)] disabled:hover:border-[var(--color-border)] disabled:hover:text-[var(--color-text-primary)] min-w-[90px] flex items-center justify-center gap-1.5"
@@ -132,7 +133,7 @@ function ApplyControl({ label, unit, placeholder, validate, onApply, questionCou
             ) : (
               "Apply to All"
             )}
-          </button>
+          </RippleButton>
         )}
 
         {/* Inline success */}
@@ -311,12 +312,12 @@ export function QuizEditor() {
           Questions ({questionCount})
         </h2>
         {questionCount > 0 && !isBulkImporting && (
-          <button
+          <RippleButton
             onClick={() => { clearFormError(); setIsBulkImporting(true); }}
             className="px-4 py-2 bg-[var(--color-surface-elevated)] border border-[var(--color-border)] rounded-xl font-bold text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-surface)] transition-colors shadow-sm"
           >
             Bulk Import (JSON)
-          </button>
+          </RippleButton>
         )}
       </div>
 
@@ -338,18 +339,18 @@ export function QuizEditor() {
             Start building your quiz by adding the first question!
           </p>
           <div className="flex flex-col gap-4 w-full sm:w-auto">
-            <button
+            <RippleButton
               onClick={() => { clearFormError(); setIsAddingQuestion(true); }}
               className="bg-[var(--color-accent)] text-white px-8 py-3 rounded-full font-bold shadow-md hover:bg-[var(--color-accent-hover)] transition-all ease-[var(--ease-smooth)] active:scale-95"
             >
               + Add First Question
-            </button>
-            <button
+            </RippleButton>
+            <RippleButton
               onClick={() => { clearFormError(); setIsBulkImporting(true); }}
-              className="text-[var(--color-text-secondary)] font-bold hover:text-[var(--color-accent)] transition-colors"
+              className="text-[var(--color-text-secondary)] font-bold hover:text-[var(--color-accent)] transition-colors bg-transparent border-0 shadow-none hover:shadow-none"
             >
               or Bulk Import (JSON)
-            </button>
+            </RippleButton>
           </div>
         </div>
       ) : (
@@ -370,12 +371,12 @@ export function QuizEditor() {
               />
             </div>
           ) : (
-            <button
+            <RippleButton
               onClick={() => { clearFormError(); setIsAddingQuestion(true); }}
-              className="mt-4 bg-[var(--color-surface-elevated)] border-2 border-dashed border-[var(--color-border)] text-[var(--color-text-primary)] px-6 py-6 rounded-2xl font-bold hover:bg-[var(--color-surface)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-all ease-[var(--ease-smooth)]"
+              className="mt-4 bg-[var(--color-surface-elevated)] border-2 border-dashed border-[var(--color-border)] text-[var(--color-text-primary)] px-6 py-6 rounded-2xl font-bold hover:bg-[var(--color-surface)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-all ease-[var(--ease-smooth)] w-full justify-center"
             >
               + Add Another Question
-            </button>
+            </RippleButton>
           )}
         </div>
       )}

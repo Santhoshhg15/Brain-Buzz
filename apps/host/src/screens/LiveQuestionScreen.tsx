@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useHostStore } from "../store/hostStore";
 import { haptics } from "../utils/haptics";
+import { RippleButton } from "../components/RippleButton";
 
 export function LiveQuestionScreen() {
   // ─── 1. ALL HOOKS MUST BE AT THE TOP BEFORE ANY EARLY RETURNS ──────────────
@@ -107,7 +108,7 @@ export function LiveQuestionScreen() {
             <span className="text-xs font-bold text-[var(--color-error)] pl-2">
               End session immediately for all students?
             </span>
-            <button
+            <RippleButton
               onClick={async () => {
                 haptics.tap();
                 setTerminateError(null);
@@ -119,21 +120,21 @@ export function LiveQuestionScreen() {
               className="px-4 py-1.5 bg-[var(--color-error)] text-white text-xs font-bold rounded-xl hover:bg-red-800 transition-colors shadow-sm"
             >
               Yes, Terminate
-            </button>
-            <button
+            </RippleButton>
+            <RippleButton
               onClick={() => setIsTerminating(false)}
               className="px-3 py-1.5 bg-[var(--color-surface)] text-[var(--color-text-secondary)] text-xs font-bold rounded-xl border border-[var(--color-border)] hover:bg-[var(--color-border)] transition-colors"
             >
               Cancel
-            </button>
+            </RippleButton>
           </div>
         ) : (
-          <button
+          <RippleButton
             onClick={() => setIsTerminating(true)}
             className="px-5 py-2.5 bg-[var(--color-error-bg)] border border-[var(--color-error)]/25 text-[var(--color-error)] hover:bg-[var(--color-error)] hover:text-white rounded-xl font-bold text-xs transition-all active:scale-95"
           >
             🛑 Terminate Session
-          </button>
+          </RippleButton>
         )}
         
         {terminateError && (
@@ -145,42 +146,42 @@ export function LiveQuestionScreen() {
         {/* Right: Pause / Resume & Skip Buttons */}
         <div className="flex items-center gap-3">
           {isPaused ? (
-            <button
+            <RippleButton
               onClick={() => {
                 haptics.tap();
                 resumeSession();
               }}
-              className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-full font-bold shadow-md transition-all active:scale-95 flex items-center gap-2 text-sm"
+              className="btn-secondary flex items-center gap-2"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
               </svg>
               Resume Session
-            </button>
+            </RippleButton>
           ) : (
-            <button
+            <RippleButton
               onClick={() => {
                 haptics.tap();
                 pauseSession();
               }}
-              className="bg-amber-100 border border-amber-300 text-amber-900 hover:bg-amber-200 px-6 py-3 rounded-full font-bold shadow-sm transition-all active:scale-95 flex items-center gap-2 text-sm"
+              className="btn-secondary flex items-center gap-2"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5 0a1 1 0 012 0v4a1 1 0 11-2 0V8z" clipRule="evenodd" />
               </svg>
               Pause Session
-            </button>
+            </RippleButton>
           )}
 
-          <button
+          <RippleButton
             onClick={() => {
               haptics.tap();
               nextQuestion();
             }}
-            className="bg-gray-200 hover:bg-gray-300 text-[var(--color-text-secondary)] px-6 py-3 rounded-full font-bold text-sm transition-colors"
+            className="btn-primary"
           >
             Skip / Reveal Now →
-          </button>
+          </RippleButton>
         </div>
       </div>
     </div>

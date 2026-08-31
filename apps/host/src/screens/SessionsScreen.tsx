@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { authFetch } from "../auth/apiClient";
 import { useHostStore } from "../store/hostStore";
+import { RippleButton } from "../components/RippleButton";
 import type { SessionSummary } from "@quiz/shared-types";
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:4000";
@@ -125,28 +126,27 @@ export function SessionsScreen() {
           </Link>
         </div>
 
-        {/* Tab Control */}
         <div className="flex gap-2 border-b border-[var(--color-border)] mb-8">
-          <button
+          <RippleButton
             onClick={() => setTab("active")}
-            className={`px-6 py-3 font-bold text-sm border-b-2 transition-all ${
+            className={`px-6 py-3 font-bold text-sm border-b-2 transition-all rounded-none ${
               tab === "active"
                 ? "border-[var(--color-accent)] text-[var(--color-accent)]"
                 : "border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
             }`}
           >
             In Progress
-          </button>
-          <button
+          </RippleButton>
+          <RippleButton
             onClick={() => setTab("completed")}
-            className={`px-6 py-3 font-bold text-sm border-b-2 transition-all ${
+            className={`px-6 py-3 font-bold text-sm border-b-2 transition-all rounded-none ${
               tab === "completed"
                 ? "border-[var(--color-accent)] text-[var(--color-accent)]"
                 : "border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
             }`}
           >
             Completed
-          </button>
+          </RippleButton>
         </div>
 
         {/* Error message */}
@@ -203,26 +203,26 @@ export function SessionsScreen() {
                       <span className="text-xs font-bold text-[var(--color-error)] pl-2">
                         This will end all {sessions.length} in-progress sessions immediately. Are you sure?
                       </span>
-                      <button
+                      <RippleButton
                         onClick={handleTerminateAll}
                         className="px-3 py-1.5 bg-[var(--color-error)] text-white text-xs font-bold rounded-lg hover:bg-red-800 transition-colors shadow-sm"
                       >
                         Confirm
-                      </button>
-                      <button
+                      </RippleButton>
+                      <RippleButton
                         onClick={() => setTerminatingAllState({ isConfirming: false, isRunning: false, statusText: null })}
                         className="px-3 py-1.5 bg-[var(--color-surface)] text-[var(--color-text-primary)] text-xs font-bold rounded-lg border border-[var(--color-border)] hover:bg-[var(--color-border)] transition-colors"
                       >
                         Cancel
-                      </button>
+                      </RippleButton>
                     </div>
                   ) : (
-                    <button
+                    <RippleButton
                       onClick={() => setTerminatingAllState({ isConfirming: true, isRunning: false, statusText: null })}
                       className="px-4 py-2 text-xs font-bold text-[var(--color-error)] border border-[var(--color-error)]/30 hover:bg-[var(--color-error-bg)] rounded-xl transition-colors shadow-sm"
                     >
                       Terminate All
-                    </button>
+                    </RippleButton>
                   )}
                 </div>
               </div>
@@ -273,34 +273,34 @@ export function SessionsScreen() {
                       <div className="flex items-center justify-between gap-2 bg-[var(--color-error-bg)]/50 p-2 rounded-xl animate-[screenEnter_150ms_var(--ease-out-expo)]">
                         <span className="text-xs font-bold text-[var(--color-error)] pl-2">Terminate session?</span>
                         <div className="flex gap-2">
-                          <button
+                          <RippleButton
                             onClick={() => handleTerminate(s.sessionId)}
                             className="px-3 py-1 bg-[var(--color-error)] text-white text-xs font-bold rounded-lg hover:bg-red-800 transition-colors"
                           >
                             Confirm
-                          </button>
-                          <button
+                          </RippleButton>
+                          <RippleButton
                             onClick={() => setTerminatingId(null)}
                             className="px-3 py-1 bg-[var(--color-surface)] text-[var(--color-text-primary)] text-xs font-bold rounded-lg border border-[var(--color-border)] hover:bg-[var(--color-border)] transition-colors"
                           >
                             Cancel
-                          </button>
+                          </RippleButton>
                         </div>
                       </div>
                     ) : (
                       <div className="flex items-center justify-end gap-3">
-                        <button
+                        <RippleButton
                           onClick={() => setTerminatingId(s.sessionId)}
                           className="px-4 py-2 text-xs font-bold text-[var(--color-error)] hover:bg-[var(--color-error-bg)]/40 rounded-xl transition-colors"
                         >
                           Terminate
-                        </button>
-                        <button
+                        </RippleButton>
+                        <RippleButton
                           onClick={() => handleResume(s.sessionId)}
                           className="px-5 py-2 bg-[var(--color-accent)] text-white text-xs font-bold rounded-xl hover:bg-[var(--color-accent-hover)] transition-all active:scale-95 shadow-sm"
                         >
                           Resume →
-                        </button>
+                        </RippleButton>
                       </div>
                     )}
                   </div>

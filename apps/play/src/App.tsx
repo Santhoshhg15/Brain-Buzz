@@ -6,6 +6,7 @@ import { QuestionScreen } from "./screens/QuestionScreen";
 import { AnsweredScreen } from "./screens/AnsweredScreen";
 import { RevealScreen } from "./screens/RevealScreen";
 import { EndedScreen } from "./screens/EndedScreen";
+import { PerformanceReportScreen } from "./screens/PerformanceReportScreen";
 import { TerminatedScreen } from "./screens/TerminatedScreen";
 import { AmbientBackground } from "./components/AmbientBackground";
 import { ThemeToggle } from "./components/ThemeToggle";
@@ -16,6 +17,7 @@ function App() {
   const roomCode = usePlayStore(state => state.roomCode);
   const connectionStatus = usePlayStore(state => state.connectionStatus);
   const isRejoining = usePlayStore(state => state.isRejoining);
+  const reportScreenActive = usePlayStore(state => state.reportScreenActive);
 
   useEffect(() => {
     initSocket();
@@ -72,7 +74,8 @@ function App() {
             {screen === "QUESTION" && <QuestionScreen />}
             {screen === "ANSWERED" && <AnsweredScreen />}
             {screen === "REVEAL" && <RevealScreen />}
-            {screen === "ENDED" && <EndedScreen />}
+            {screen === "ENDED" && !reportScreenActive && <EndedScreen />}
+            {screen === "ENDED" && reportScreenActive && <PerformanceReportScreen />}
             {screen === "TERMINATED" && <TerminatedScreen />}
           </>
         )}

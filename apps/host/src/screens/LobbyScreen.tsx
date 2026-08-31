@@ -1,6 +1,7 @@
 import { QRCodeSVG } from "qrcode.react";
 import { useHostStore } from "../store/hostStore";
 import { haptics } from "../utils/haptics";
+import { RippleButton } from "../components/RippleButton";
 
 export function LobbyScreen() {
   const roomCode = useHostStore(state => state.roomCode);
@@ -44,15 +45,21 @@ export function LobbyScreen() {
         ) : (
           <div className="flex flex-wrap gap-4 justify-center">
             {participants.map(p => (
-              <div key={p.id} className="bg-[var(--color-surface)] text-[var(--color-accent)] px-6 py-3 rounded-xl font-bold text-lg shadow-sm animate-[fadeScaleIn_250ms_var(--ease-spring)]">
-                {p.name}
+              <div key={p.id} className="flex items-center gap-2 bg-[var(--color-surface)] text-[var(--color-accent)] px-6 py-3 rounded-xl shadow-sm animate-[fadeScaleIn_250ms_var(--ease-spring)]">
+                <span className="font-bold text-lg">{p.name}</span>
+                {p.connectionStatus === "reconnecting" && (
+                  <span className="text-xs text-[var(--color-text-secondary)] bg-[var(--color-bg)] px-2 py-1 rounded-full uppercase tracking-wider font-semibold animate-pulse flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)] inline-block"></span>
+                    reconnecting...
+                  </span>
+                )}
               </div>
             ))}
           </div>
         )}
       </div>
 
-      <button
+      <RippleButton
         onClick={() => {
           haptics.tap();
           startSession();
@@ -65,7 +72,7 @@ export function LobbyScreen() {
         }`}
       >
         Start Session
-      </button>
+      </RippleButton>
       {participants.length === 0 && (
         <div className="mt-4 text-sm text-[var(--color-text-secondary)]">
           Waiting for students to join...

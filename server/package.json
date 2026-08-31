@@ -13,7 +13,8 @@
     "db:studio": "prisma studio",
     "test:smoke": "tsx src/test/smokeTest.ts",
     "test:load": "tsx src/test/loadTest.ts",
-    "create-instructor": "tsx prisma/createInstructor.ts"
+    "create-instructor": "tsx prisma/createInstructor.ts",
+    "audit-data": "tsx src/scripts/auditData.ts"
   },
   "dependencies": {
     "@paralleldrive/cuid2": "^3.3.0",

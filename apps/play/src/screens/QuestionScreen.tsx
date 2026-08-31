@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { usePlayStore } from "../store/playStore";
 import { haptics } from "../utils/haptics";
+import { RippleButton } from "../components/RippleButton";
 
 export const optionStyles = [
   { bg: "bg-red-500", hover: "hover:bg-red-600", active: "active:bg-red-700", icon: "triangle" },
@@ -134,11 +135,11 @@ export function QuestionScreen() {
           const isDimmed = selectedOptionId && !isSelected;
           
           return (
-            <button
+            <RippleButton
               key={opt.id}
               onClick={() => handleOptionClick(opt.id)}
               disabled={!!selectedOptionId}
-              className={`${style.bg} ${style.hover} ${style.active} text-white p-6 rounded-xl shadow-premium transition-all ease-[var(--ease-smooth)] duration-150 flex items-center gap-4 active:scale-[0.98] h-full min-h-[80px]
+              className={`btn-base ${style.bg} ${style.hover} ${style.active} text-white p-6 shadow-premium flex items-center gap-4 h-full min-h-[80px]
                 ${isSelected ? "animate-[popIn_200ms_var(--ease-spring)] ring-4 ring-white" : ""}
                 ${isDimmed ? "opacity-50" : ""}
               `}
@@ -149,7 +150,7 @@ export function QuestionScreen() {
               <span className="text-xl sm:text-2xl font-heading font-bold break-words text-left drop-shadow-sm leading-tight flex-1">
                 {opt.text}
               </span>
-            </button>
+            </RippleButton>
           );
         })}
       </div>

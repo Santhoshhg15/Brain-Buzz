@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { io, Socket } from "socket.io-client";
-import type { ClientToServerEvents, ServerToClientEvents, QuestionData } from "@quiz/shared-types";
+import type { ClientToServerEvents, ServerToClientEvents, QuestionData, QuestionRevealPayload } from "@quiz/shared-types";
 
 type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -9,6 +9,7 @@ export interface Participant {
   id: string;
   name: string;
   score: number;
+  connectionStatus?: "connected" | "reconnecting";
 }
 
 export interface LeaderboardEntry {
@@ -16,6 +17,9 @@ export interface LeaderboardEntry {
   name: string;
   score: number;
   rank: number;
+  streakBonusApplied?: boolean;
+  accuracyBonusApplied?: number;
+  currentStreak?: number;
 }
 
 interface DisplayStore {
@@ -32,7 +36,7 @@ interface DisplayStore {
   participants: Participant[];
   
   currentQuestion: QuestionData | null;
-  revealData: { correctOptionId: string; optionCounts: Record<string, number> } | null;
+  revealData: QuestionRevealPayload | null;
   leaderboard: LeaderboardEntry[] | null;
   
   initSocket: () => void;
@@ -93,7 +97,7 @@ export const useDisplayStore = create<DisplayStore>((set, get) => ({
     });
 
     socket.on("session:ended", (payload) => {
-      const leaderboard = (payload as LeaderboardEntry[])
+      const leaderboard = (payload.finalLeaderboard as unknown as LeaderboardEntry[])
         .filter(p => p.name !== DISPLAY_NAME);
       set({
         screen: "ENDED",
@@ -118,6 +122,23 @@ export const useDisplayStore = create<DisplayStore>((set, get) => ({
       set({
         screen: "TERMINATED",
         terminatedData: { finalLeaderboard: leaderboard }
+      });
+    });
+
+    socket.on("participant:statusChanged", (payload) => {
+      set((state) => {
+        if (payload.status === "left") {
+          return {
+            participants: state.participants.filter(p => p.id !== payload.participantId)
+          };
+        }
+        return {
+          participants: state.participants.map(p => 
+            p.id === payload.participantId 
+              ? { ...p, connectionStatus: payload.status as "connected" | "reconnecting" } 
+              : p
+          )
+        };
       });
     });
 

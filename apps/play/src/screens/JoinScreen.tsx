@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { usePlayStore } from "../store/playStore";
+import { RippleButton } from "../components/RippleButton";
 
 export function JoinScreen() {
   const roomCode = usePlayStore(state => state.roomCode);
@@ -82,17 +83,13 @@ export function JoinScreen() {
             </div>
           )}
 
-          <button
+          <RippleButton
             type="submit"
             disabled={!canJoin}
-            className={`mt-4 w-full py-4 rounded-xl text-xl font-black transition-all ease-[var(--ease-smooth)] shadow-md ${
-              canJoin 
-                ? "bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)] hover:shadow-lg active:scale-95" 
-                : "opacity-40 cursor-not-allowed bg-[var(--color-accent)] text-white"
-            }`}
+            className="w-full mt-4 btn-primary btn-primary-lg"
           >
             Join Quiz
-          </button>
+          </RippleButton>
         </form>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { useAdminStore } from "../../store/adminStore";
 import { LayoutDashboard, ArrowLeft, BookOpen } from "lucide-react";
 import { useAuthStore } from "../../auth/authStore";
 import { ThemeToggle } from "../ThemeToggle";
+import { RippleButton } from "../RippleButton";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -70,12 +71,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               Signed in as <span className="font-bold text-[var(--color-text-primary)]">{instructorName}</span>
             </div>
           )}
-          <button
+          <RippleButton
             onClick={logout}
             className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-[var(--color-surface-elevated)] hover:bg-[var(--color-error-bg)]/20 border border-[var(--color-border)] hover:border-[var(--color-error)]/40 rounded-xl font-bold text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-error)] transition-all ease-[var(--ease-smooth)] duration-200 active:scale-[0.98] cursor-pointer"
           >
             Log Out
-          </button>
+          </RippleButton>
           <div className="flex justify-center pt-2">
             <ThemeToggle />
           </div>

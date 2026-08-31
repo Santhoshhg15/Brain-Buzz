@@ -221,12 +221,23 @@ router.delete("/quizzes/:id", requireAuth, async (req: Request, res: Response): 
 router.post("/quizzes/:id/questions", requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { text, durationSeconds, points, options } = req.body;
+    const { text, durationSeconds, points, options, explanation } = req.body;
 
     const quiz = await prisma.quiz.findUnique({ where: { id } });
     if (!quiz) {
       res.status(404).json({ error: "Quiz not found" });
       return;
+    }
+
+    if (explanation !== undefined && explanation !== null) {
+      if (typeof explanation !== 'string') {
+        res.status(400).json({ error: "Explanation must be a string if provided" });
+        return;
+      }
+      if (explanation.trim().length > 1000) {
+        res.status(400).json({ error: "Explanation cannot exceed 1000 characters" });
+        return;
+      }
     }
 
     if (typeof text !== 'string' || text.trim() === '') {
@@ -284,6 +295,7 @@ router.post("/quizzes/:id/questions", requireAuth, async (req: Request, res: Res
           text: text.trim(),
           durationSeconds,
           points,
+          explanation: explanation ? explanation.trim() : null,
           orderIndex: newOrderIndex,
           options: {
             create: options.map((opt, idx) => ({
@@ -376,6 +388,14 @@ router.post("/quizzes/:id/questions/bulk", requireAuth, async (req: Request, res
       const errors: string[] = [];
       const qText = typeof q.text === 'string' && q.text.trim() !== '' ? q.text.trim() : "(empty)";
 
+      if (q.explanation !== undefined && q.explanation !== null) {
+        if (typeof q.explanation !== 'string') {
+          errors.push("Explanation must be a string if provided");
+        } else if (q.explanation.trim().length > 1000) {
+          errors.push("Explanation cannot exceed 1000 characters");
+        }
+      }
+
       if (typeof q.text !== 'string' || q.text.trim() === '') {
         errors.push("Text must be a non-empty string");
       } else if (q.text.trim().length > 2000) {
@@ -451,6 +471,7 @@ router.post("/quizzes/:id/questions/bulk", requireAuth, async (req: Request, res
           text: q.text.trim(),
           durationSeconds: q.durationSeconds,
           points: q.points,
+          explanation: q.explanation ? q.explanation.trim() : null,
           orderIndex: nextOrderIndex,
         });
 
@@ -496,7 +517,7 @@ router.post("/quizzes/:id/questions/bulk", requireAuth, async (req: Request, res
 router.patch("/questions/:id", requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { text, durationSeconds, points } = req.body;
+    const { text, durationSeconds, points, explanation } = req.body;
 
     const question = await prisma.question.findUnique({ where: { id } });
     if (!question) {
@@ -529,6 +550,17 @@ router.patch("/questions/:id", requireAuth, async (req: Request, res: Response):
         return;
       }
       updateData.points = points;
+    }
+    if (explanation !== undefined) {
+      if (explanation !== null && typeof explanation !== 'string') {
+        res.status(400).json({ error: "Explanation must be a string or null" });
+        return;
+      }
+      if (explanation && explanation.trim().length > 1000) {
+        res.status(400).json({ error: "Explanation cannot exceed 1000 characters" });
+        return;
+      }
+      updateData.explanation = explanation ? explanation.trim() : null;
     }
 
     const updatedQuestion = await prisma.question.update({

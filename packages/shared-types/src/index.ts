@@ -3,6 +3,9 @@ export interface ParticipantData {
   name: string;
   score: number;
   rank: number;
+  streakBonusApplied?: boolean;
+  accuracyBonusApplied?: number;
+  currentStreak?: number;
 }
 
 export interface QuestionData {
@@ -13,6 +16,7 @@ export interface QuestionData {
   options: { id: string; text: string; orderIndex: number }[];
   durationSeconds: number;
   serverStartTime: number;
+  explanation?: string;
 }
 
 export interface OptionCount {
@@ -23,6 +27,8 @@ export interface QuestionRevealPayload {
   questionId: string;
   correctOptionId: string;
   optionCounts: OptionCount;
+  explanation?: string;
+  currentStreak?: number;
 }
 
 export interface RoomRejoinPayload {
@@ -99,10 +105,11 @@ export interface ServerToClientEvents {
   "question:broadcast": (payload: QuestionData) => void;
   "question:reveal": (payload: QuestionRevealPayload) => void;
   "leaderboard:update": (payload: ParticipantData[]) => void;
-  "session:ended": (payload: ParticipantData[]) => void;
+  "session:ended": (payload: { finalLeaderboard: ParticipantData[] }) => void;
   "session:paused": () => void;
   "session:resumed": (payload: { currentQuestion: QuestionData }) => void;
   "session:terminated": (payload: { finalLeaderboard: ParticipantData[] }) => void;
   "session:restarted": () => void;
   "answeredCount:update": (payload: { answeredCount: number; totalParticipants: number }) => void;
+  "participant:statusChanged": (payload: { participantId: string; status: "connected" | "reconnecting" | "left" }) => void;
 }

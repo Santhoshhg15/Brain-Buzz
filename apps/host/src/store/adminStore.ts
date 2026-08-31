@@ -15,6 +15,7 @@ export interface QuestionDetail {
   orderIndex: number;
   durationSeconds: number;
   points: number;
+  explanation?: string;
   options: OptionDetail[];
 }
 

@@ -1,5 +1,7 @@
 import { useCountUp } from "../hooks/useCountUp";
 import { useHostStore } from "../store/hostStore";
+import { Lightbulb } from "lucide-react";
+import { RippleButton } from "../components/RippleButton";
 
 function LeaderboardRow({ entry, idx }: { entry: any; idx: number }) {
   const animatedScore = useCountUp(entry.score);
@@ -78,6 +80,18 @@ export function RevealScreen() {
             );
           })}
         </div>
+
+        {revealData.explanation && (
+          <div className="mt-8 bg-[var(--color-surface-elevated)] p-6 rounded-2xl shadow-sm border border-[var(--color-border)] text-left">
+            <div className="flex items-center gap-2 mb-3 text-[var(--color-accent)]">
+              <Lightbulb className="w-6 h-6" />
+              <span className="text-base font-bold uppercase tracking-wider">Why?</span>
+            </div>
+            <p className="text-[var(--color-text-primary)] font-medium text-lg leading-relaxed">
+              {revealData.explanation}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Right side - Live Leaderboard */}
@@ -98,19 +112,19 @@ export function RevealScreen() {
 
         <div className="mt-8">
           {isLastQuestion ? (
-            <button
+            <RippleButton
               onClick={endSession}
               className="w-full bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white px-8 py-4 rounded-xl font-bold text-xl shadow-lg transition-all ease-[var(--ease-smooth)]"
             >
               End Session & Results
-            </button>
+            </RippleButton>
           ) : (
-            <button
+            <RippleButton
               onClick={nextQuestion}
               className="w-full bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white px-8 py-4 rounded-xl font-bold text-xl shadow-lg transition-all ease-[var(--ease-smooth)]"
             >
               Next Question →
-            </button>
+            </RippleButton>
           )}
         </div>
       </div>

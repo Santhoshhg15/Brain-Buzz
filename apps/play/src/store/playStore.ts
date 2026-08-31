@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { io, Socket } from "socket.io-client";
-import type { ClientToServerEvents, ServerToClientEvents, QuestionData } from "@quiz/shared-types";
+import type { ClientToServerEvents, ServerToClientEvents, QuestionData, QuestionRevealPayload } from "@quiz/shared-types";
 
 type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -10,6 +10,32 @@ export interface LeaderboardEntry {
   name: string;
   score: number;
   rank: number;
+  streakBonusApplied?: boolean;
+  accuracyBonusApplied?: number;
+}
+
+export interface PerformanceReport {
+  totalQuestions: number;
+  answeredCount: number;
+  unansweredCount: number;
+  correctCount: number;
+  wrongCount: number;
+  accuracyPercent: number;
+  finalScore: number;
+  finalRank: number;
+  totalParticipants: number;
+  responseTimeStats: {
+    minMs: number;
+    maxMs: number;
+    avgMs: number;
+    totalMs: number;
+  } | null;
+  perQuestionBreakdown: Array<{
+    questionText: string;
+    isCorrect: boolean;
+    responseTimeMs: number | null;
+    pointsAwarded: number;
+  }>;
 }
 
 interface PlayStore {
@@ -19,6 +45,10 @@ interface PlayStore {
   isRejoining: boolean;
   isPaused: boolean;
   terminatedData: { finalLeaderboard: LeaderboardEntry[] } | null;
+  
+  performanceReport: PerformanceReport | null;
+  reportLoading: boolean;
+  reportScreenActive: boolean;
   
   // Input fields
   roomCode: string;
@@ -35,7 +65,7 @@ interface PlayStore {
   // Game state
   currentQuestion: QuestionData | null;
   selectedOptionId: string | null;
-  revealData: { correctOptionId: string; optionCounts: Record<string, number> } | null;
+  revealData: QuestionRevealPayload | null;
   myLastAnswerCorrect: boolean | null;
   
   // Leaderboard
@@ -49,6 +79,8 @@ interface PlayStore {
   submitAnswer: (optionId: string) => void;
   resetGame: () => void;
   attemptRejoin: () => void;
+  fetchPerformanceReport: () => Promise<void>;
+  setReportScreenActive: (active: boolean) => void;
 }
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:4000";
@@ -104,6 +136,10 @@ export const usePlayStore = create<PlayStore>((set, get) => ({
   isPaused: false,
   terminatedData: null,
   
+  performanceReport: null,
+  reportLoading: false,
+  reportScreenActive: false,
+  
   roomCode: initialState.initialRoomCode,
   studentName: "",
   setRoomCode: (code: string) => set({ roomCode: code.toUpperCase() }),
@@ -149,6 +185,14 @@ export const usePlayStore = create<PlayStore>((set, get) => ({
     });
 
     socket.on("question:reveal", (payload) => {
+      const revealMs = performance.now();
+      console.log(`[TIMING] 'question:reveal' received at ${revealMs.toFixed(2)}ms`);
+      
+      const lastSubmitMs = (window as any).lastAnswerSubmitMs;
+      if (lastSubmitMs) {
+        console.log(`[TIMING] Total round-trip from submit emit to reveal received: ${(revealMs - lastSubmitMs).toFixed(2)}ms`);
+      }
+
       const { selectedOptionId } = get();
       const myLastAnswerCorrect = selectedOptionId ? (selectedOptionId === payload.correctOptionId) : false;
       
@@ -171,13 +215,13 @@ export const usePlayStore = create<PlayStore>((set, get) => ({
 
     socket.on("session:ended", (payload) => {
       const { participantId } = get();
-      const me = (payload as LeaderboardEntry[]).find(e => e.id === participantId);
+      const me = (payload.finalLeaderboard as LeaderboardEntry[]).find(e => e.id === participantId);
       
       localStorage.removeItem("brainbuzz_play_session");
 
       set({
         screen: "ENDED",
-        leaderboard: payload as LeaderboardEntry[],
+        leaderboard: payload.finalLeaderboard as LeaderboardEntry[],
         myRank: me ? me.rank : null,
         myScore: me ? me.score : null
       });
@@ -232,6 +276,9 @@ export const usePlayStore = create<PlayStore>((set, get) => ({
   },
   
   submitAnswer: (optionId: string) => {
+    const startMs = performance.now();
+    console.log(`[TIMING] submitAnswer called at ${startMs.toFixed(2)}ms`);
+
     const { socket, selectedOptionId, sessionId, participantId, currentQuestion } = get();
     
     // Prevent double submission
@@ -241,6 +288,9 @@ export const usePlayStore = create<PlayStore>((set, get) => ({
       selectedOptionId: optionId,
       screen: "ANSWERED"
     });
+
+    const localUpdateMs = performance.now();
+    console.log(`[TIMING] Local optimistic update completed at ${localUpdateMs.toFixed(2)}ms (took ${(localUpdateMs - startMs).toFixed(2)}ms)`);
     
     socket.emit("answer:submit", {
       sessionId,
@@ -248,6 +298,11 @@ export const usePlayStore = create<PlayStore>((set, get) => ({
       questionId: currentQuestion.id,
       optionId
     });
+
+    const emitMs = performance.now();
+    console.log(`[TIMING] 'answer:submit' emitted at ${emitMs.toFixed(2)}ms (took ${(emitMs - localUpdateMs).toFixed(2)}ms)`);
+    
+    (window as any).lastAnswerSubmitMs = emitMs;
   },
   
   resetGame: () => {
@@ -344,5 +399,30 @@ export const usePlayStore = create<PlayStore>((set, get) => ({
 
       set(updates);
     });
+  },
+  
+  setReportScreenActive: (active: boolean) => {
+    set({ reportScreenActive: active });
+  },
+  
+  fetchPerformanceReport: async () => {
+    const { sessionId, participantId } = get();
+    if (!sessionId || !participantId) return;
+    
+    set({ reportLoading: true });
+    
+    try {
+      const res = await fetch(`${SERVER_URL}/api/sessions/${sessionId}/participants/${participantId}/report`);
+      if (res.ok) {
+        const data = await res.json();
+        set({ performanceReport: data });
+      } else {
+        console.error("Failed to fetch performance report", res.status);
+      }
+    } catch (error) {
+      console.error("Error fetching performance report:", error);
+    } finally {
+      set({ reportLoading: false });
+    }
   }
 }));

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { io, Socket } from "socket.io-client";
-import type { ClientToServerEvents, ServerToClientEvents, QuestionData, SessionSummary } from "@quiz/shared-types";
+import type { ClientToServerEvents, ServerToClientEvents, QuestionData, SessionSummary, QuestionRevealPayload } from "@quiz/shared-types";
 import { authFetch } from "../auth/apiClient";
 import { useAuthStore } from "../auth/authStore";
 
@@ -19,6 +19,7 @@ interface Participant {
   id: string;
   name: string;
   score: number;
+  connectionStatus?: "connected" | "reconnecting";
 }
 
 interface LeaderboardEntry {
@@ -39,7 +40,7 @@ interface HostStore {
   quizTitle: string | null;
   participants: Participant[];
   currentQuestion: QuestionData | null;
-  revealData: { correctOptionId: string; optionCounts: Record<string, number> } | null;
+  revealData: QuestionRevealPayload | null;
   leaderboard: LeaderboardEntry[];
   sessionError: string | null;
   creatingRoomId: string | null;
@@ -138,7 +139,7 @@ export const useHostStore = create<HostStore>((set, get) => ({
     socket.on("session:ended", (payload) => {
       set({
         screen: "ENDED",
-        leaderboard: payload as LeaderboardEntry[],
+        leaderboard: payload.finalLeaderboard as LeaderboardEntry[],
         isPaused: false
       });
     });
@@ -185,6 +186,23 @@ export const useHostStore = create<HostStore>((set, get) => ({
       set({
         answeredCount: payload.answeredCount,
         totalParticipants: payload.totalParticipants
+      });
+    });
+
+    socket.on("participant:statusChanged", (payload) => {
+      set((state) => {
+        if (payload.status === "left") {
+          return {
+            participants: state.participants.filter(p => p.id !== payload.participantId)
+          };
+        }
+        return {
+          participants: state.participants.map(p => 
+            p.id === payload.participantId 
+              ? { ...p, connectionStatus: payload.status as "connected" | "reconnecting" } 
+              : p
+          )
+        };
       });
     });
 

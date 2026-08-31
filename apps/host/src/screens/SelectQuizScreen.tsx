@@ -1,6 +1,8 @@
 import { useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useHostStore } from "../store/hostStore";
+import { Layers, Settings, Play } from "lucide-react";
+import { RippleButton } from "../components/RippleButton";
 
 export function SelectQuizScreen() {
   const fetchQuizzes = useHostStore(state => state.fetchQuizzes);
@@ -12,6 +14,7 @@ export function SelectQuizScreen() {
   const dismissActiveSessionsBanner = useHostStore(state => state.dismissActiveSessionsBanner);
   const sessionError = useHostStore(state => state.sessionError);
   const creatingRoomId = useHostStore(state => state.creatingRoomId);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchQuizzes();
@@ -21,49 +24,56 @@ export function SelectQuizScreen() {
   const activeSession = activeSessions[0];
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] relative w-full max-w-5xl mx-auto">
-      <div className="absolute top-0 right-0 flex items-center gap-3">
-        <Link 
-          to="/sessions" 
-          className="text-[var(--color-text-secondary)] font-bold text-sm bg-[var(--color-surface-elevated)] border border-[var(--color-border)] px-4 py-2 rounded-full hover:bg-[var(--color-surface)] transition-all ease-[var(--ease-smooth)]"
-        >
-          My Sessions
-        </Link>
-        <Link 
-          to="/admin" 
-          className="text-[var(--color-accent)] font-bold text-sm bg-[var(--color-accent)]/10 px-4 py-2 rounded-full hover:bg-[var(--color-accent)]/20 transition-all ease-[var(--ease-smooth)]"
-        >
-          Manage Quizzes
-        </Link>
+    <div className="flex flex-col items-center w-full max-w-5xl mx-auto py-6 px-4 animate-[screenEnter_300ms_var(--ease-out-expo)]">
+      {/* Top Header Section */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center w-full gap-4 mb-10 border-b border-[var(--color-border)]/40 pb-6">
+        <div>
+          <h2 className="text-3xl font-heading font-black text-[var(--color-text-primary)] tracking-tight">Select Quiz</h2>
+          <p className="text-sm text-[var(--color-text-secondary)] font-medium mt-1">Choose a quiz to launch a live interactive session.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <RippleButton 
+            onClick={() => navigate("/sessions")}
+            className="btn-secondary btn-secondary-sm shadow-sm"
+          >
+            <Layers className="w-4 h-4 mr-1 text-[var(--color-text-secondary)]" />
+            My Sessions
+          </RippleButton>
+          <RippleButton 
+            onClick={() => navigate("/admin")}
+            className="btn-primary btn-primary-sm shadow-sm"
+          >
+            <Settings className="w-4 h-4 mr-1 text-white" />
+            Manage Quizzes
+          </RippleButton>
+        </div>
       </div>
-
-      <h2 className="text-3xl font-heading font-bold mb-8 text-[var(--color-text-primary)] mt-12 sm:mt-0">Select a Quiz to Host</h2>
       
       {/* Active Session Banner */}
       {activeSession && (
-        <div className="w-full bg-[var(--color-accent)]/10 border-2 border-[var(--color-accent)]/30 p-4 rounded-2xl mb-8 flex flex-col sm:flex-row items-center justify-between gap-4 animate-[screenEnter_200ms_var(--ease-out-expo)] shadow-sm">
-          <div className="flex items-center gap-3">
+        <div className="w-full bg-[var(--color-accent)]/5 border border-[var(--color-accent)]/20 p-5 rounded-2xl mb-8 flex flex-col sm:flex-row items-center justify-between gap-4 animate-[screenEnter_200ms_var(--ease-out-expo)] shadow-sm">
+          <div className="flex items-center gap-4">
             <div className="w-3 h-3 rounded-full bg-[var(--color-accent)] animate-ping shrink-0" />
             <div>
-              <span className="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-wider block">In-Progress Session Detected</span>
+              <span className="text-xs font-bold text-[var(--color-accent)] uppercase tracking-wider block">In-Progress Session Detected</span>
               <p className="text-sm font-bold text-[var(--color-text-primary)]">
-                Quiz: <span className="text-[var(--color-accent)]">{activeSession.quizTitle}</span> (Room: <span className="font-mono font-bold">{activeSession.roomCode}</span>)
+                Quiz: <span className="text-[var(--color-accent)]">{activeSession.quizTitle}</span> (Room: <span className="font-mono font-black text-lg bg-[var(--color-surface)] px-2 py-0.5 rounded border border-[var(--color-border)] ml-1">{activeSession.roomCode}</span>)
               </p>
             </div>
           </div>
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            <button
+            <RippleButton
               onClick={() => rejoinSession(activeSession.sessionId)}
-              className="flex-1 sm:flex-initial px-5 py-2 bg-[var(--color-accent)] text-white text-xs font-bold rounded-xl hover:bg-[var(--color-accent-hover)] transition-all active:scale-95 shadow-md"
+              className="flex-1 sm:flex-initial btn-primary btn-primary-sm py-2.5 shadow-sm"
             >
               Resume
-            </button>
-            <button
+            </RippleButton>
+            <RippleButton
               onClick={dismissActiveSessionsBanner}
-              className="px-3 py-2 text-xs font-bold text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+              className="px-4 py-2.5 text-xs btn-secondary btn-secondary-sm"
             >
               Dismiss
-            </button>
+            </RippleButton>
           </div>
         </div>
       )}
@@ -75,13 +85,13 @@ export function SelectQuizScreen() {
       )}
       
       {availableQuizzes.length === 0 ? (
-        <div className="flex gap-6 w-full max-w-5xl">
-          <div className="skeleton w-1/3 h-32"></div>
-          <div className="skeleton w-1/3 h-32"></div>
-          <div className="skeleton w-1/3 h-32"></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+          <div className="skeleton w-full h-44"></div>
+          <div className="skeleton w-full h-44"></div>
+          <div className="skeleton w-full h-44"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
           {availableQuizzes.map(quiz => {
             const isCreating = creatingRoomId === quiz.id;
             const isAnyCreating = creatingRoomId !== null;
@@ -90,21 +100,29 @@ export function SelectQuizScreen() {
               <div 
                 key={quiz.id}
                 onClick={() => !isAnyCreating && createRoom(quiz.id)}
-                className={`bg-[var(--color-surface-elevated)] p-6 rounded-xl shadow-md border border-[var(--color-border)] flex flex-col transition-all ease-[var(--ease-smooth)] ${
-                  isAnyCreating && !isCreating ? 'opacity-50 grayscale pointer-events-none' : ''
+                className={`bg-[var(--color-surface-elevated)] p-6 rounded-2xl border border-[var(--color-border)]/60 flex flex-col justify-between transition-all duration-300 relative group h-48 select-none ${
+                  isAnyCreating && !isCreating ? 'opacity-40 grayscale pointer-events-none' : ''
                 } ${
-                  isCreating ? 'ring-2 ring-[var(--color-accent)] shadow-xl -translate-y-1' : 'hover:shadow-xl hover:-translate-y-1 cursor-pointer'
+                  isCreating 
+                    ? 'ring-2 ring-[var(--color-accent)] shadow-lg shadow-[var(--color-accent)]/10 -translate-y-1' 
+                    : 'hover:shadow-lg hover:-translate-y-1 hover:border-[var(--color-accent)]/40 cursor-pointer'
                 }`}
               >
-                <h3 className="text-xl font-heading font-bold text-[var(--color-text-primary)] mb-2">{quiz.title}</h3>
-                <div className="text-sm text-[var(--color-text-secondary)] mb-4 mt-auto">
-                  {new Date(quiz.createdAt).toLocaleDateString()}
+                <div className="flex-1">
+                  <h3 className="text-xl font-heading font-bold text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)] transition-colors line-clamp-2 leading-tight">
+                    {quiz.title}
+                  </h3>
+                  <div className="text-xs text-[var(--color-text-secondary)] font-semibold mt-2">
+                    Created {new Date(quiz.createdAt).toLocaleDateString()}
+                  </div>
                 </div>
-                <div className="flex justify-between items-center border-t pt-4">
-                  <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+
+                <div className="flex justify-between items-center border-t border-[var(--color-border)]/40 pt-4 mt-auto">
+                  <span className="bg-[var(--color-accent)]/10 text-[var(--color-accent)] text-xs font-bold px-3 py-1 rounded-full">
                     {quiz.questionCount} Questions
                   </span>
-                  <span className={`font-medium flex items-center gap-2 ${isCreating ? 'text-[var(--color-accent)]' : 'text-blue-600 hover:text-blue-800'}`}>
+                  
+                  <span className={`text-sm font-bold flex items-center gap-1.5 transition-colors ${isCreating ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-secondary)] group-hover:text-[var(--color-accent)]'}`}>
                     {isCreating ? (
                       <>
                         <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -114,7 +132,10 @@ export function SelectQuizScreen() {
                         Starting...
                       </>
                     ) : (
-                      "Host Now →"
+                      <>
+                        Host Now
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                      </>
                     )}
                   </span>
                 </div>

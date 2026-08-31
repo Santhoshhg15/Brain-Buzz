@@ -1,5 +1,6 @@
 import { useCountUp } from "../hooks/useCountUp";
 import { useHostStore } from "../store/hostStore";
+import { RippleButton } from "../components/RippleButton";
 
 function EndedLeaderboardRow({ entry, idx }: { entry: any; idx: number }) {
   const animatedScore = useCountUp(entry.score);
@@ -73,25 +74,32 @@ export function EndedScreen() {
         <div className="flex-1 flex flex-col items-center text-center p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
           <h3 className="font-bold text-lg text-[var(--color-text-primary)] mb-1">Restart Same Session</h3>
           <p className="text-xs text-[var(--color-text-secondary)] font-semibold mb-4">Same students, scores reset to 0</p>
-          <button
+          <RippleButton
             onClick={restartSameSession}
             className="mt-auto w-full py-3 px-4 bg-[var(--color-surface-elevated)] border-2 border-[var(--color-accent)] text-[var(--color-accent)] font-bold text-sm rounded-xl hover:bg-[var(--color-accent)] hover:text-white transition-all active:scale-95 shadow-sm"
           >
             🔄 Restart Same Session
-          </button>
+          </RippleButton>
         </div>
 
         <div className="flex-1 flex flex-col items-center text-center p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
           <h3 className="font-bold text-lg text-[var(--color-text-primary)] mb-1">Start Fresh</h3>
           <p className="text-xs text-[var(--color-text-secondary)] font-semibold mb-4">New room code, students rejoin</p>
-          <button
+          <RippleButton
             onClick={restartFreshSession}
             className="mt-auto w-full py-3 px-4 bg-[var(--color-accent)] text-white font-bold text-sm rounded-xl hover:bg-[var(--color-accent-hover)] transition-all active:scale-95 shadow-md"
           >
             ✨ Start Fresh (New Code)
-          </button>
+          </RippleButton>
         </div>
       </div>
+
+      <RippleButton
+        onClick={() => useHostStore.getState().resetSession()}
+        className="mt-8 btn-secondary px-8 py-3.5 shadow-sm font-bold uppercase tracking-wider text-xs w-full max-w-2xl"
+      >
+        Back to Dashboard
+      </RippleButton>
     </div>
   );
 }

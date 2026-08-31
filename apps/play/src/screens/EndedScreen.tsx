@@ -1,14 +1,32 @@
+import { useEffect } from "react";
 import { useCountUp } from "../hooks/useCountUp";
 import { usePlayStore } from "../store/playStore";
+import { RippleButton } from "../components/RippleButton";
+import { calculateAchievements } from "../utils/calculateAchievements";
 
 export function EndedScreen() {
   const myRank = usePlayStore(state => state.myRank);
   const leaderboard = usePlayStore(state => state.leaderboard);
   const participantId = usePlayStore(state => state.participantId);
+  const fetchPerformanceReport = usePlayStore(state => state.fetchPerformanceReport);
+  const performanceReport = usePlayStore(state => state.performanceReport);
 
-  const targetScore = leaderboard?.find(e => e.id === participantId)?.score || 0;
+  useEffect(() => {
+    fetchPerformanceReport();
+  }, [fetchPerformanceReport]);
+
+  const targetEntry = leaderboard?.find(e => e.id === participantId);
+  const targetScore = targetEntry?.score || 0;
   const myScore = useCountUp(targetScore);
   const isTop3 = myRank && myRank <= 3;
+
+  const accuracyPercent = performanceReport 
+    ? Math.round(performanceReport.accuracyPercent) 
+    : (targetEntry?.accuracyBonusApplied === 500 ? 90 : targetEntry?.accuracyBonusApplied === 250 ? 75 : 60);
+
+  const achievements = performanceReport
+    ? calculateAchievements(performanceReport, myRank)
+    : [];
 
   return (
     <div className="flex flex-col items-center w-full min-h-[90vh] px-4 py-8 text-center bg-[var(--color-surface)]">
@@ -50,6 +68,38 @@ export function EndedScreen() {
         </div>
       )}
 
+      {achievements.length > 0 && (
+        <div className="w-full max-w-sm bg-[var(--color-surface-elevated)] rounded-2xl shadow-md p-5 border border-[var(--color-border)] mb-8">
+          <div className="text-[var(--color-text-secondary)] font-bold mb-3 uppercase tracking-widest text-xs">
+            Achievements Earned
+          </div>
+          <div className="flex flex-wrap justify-center gap-2">
+            {achievements.map((achievement, idx) => (
+              <div 
+                key={achievement.id}
+                title={achievement.description}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-sm font-bold text-[var(--color-text-primary)] shadow-sm animate-streak-bounce select-none cursor-help"
+                style={{ animationDelay: `${idx * 150}ms` }}
+              >
+                <span className="text-lg">{achievement.icon}</span>
+                <span>{achievement.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {targetEntry?.accuracyBonusApplied && targetEntry.accuracyBonusApplied > 0 && (
+        <div className="w-full max-w-sm bg-green-500/10 border border-green-500/30 rounded-2xl p-4 mb-8 text-green-700 dark:text-green-400 text-center animate-streak-bounce">
+          <div className="font-extrabold text-base flex items-center justify-center gap-1.5">
+            <span>🎯</span> Accuracy Bonus!
+          </div>
+          <p className="text-sm font-semibold mt-1">
+            +{targetEntry.accuracyBonusApplied} points for {accuracyPercent}% accuracy!
+          </p>
+        </div>
+      )}
+
       {leaderboard && (
         <div className="w-full max-w-sm bg-[var(--color-surface-elevated)] rounded-2xl shadow-md p-5 border border-[var(--color-border)] mt-auto text-left">
           <h3 className="font-bold text-[var(--color-text-primary)] mb-3 text-center border-b pb-3">Final Leaderboard Top 5</h3>
@@ -71,6 +121,22 @@ export function EndedScreen() {
           </div>
         </div>
       )}
+
+      <div className="mt-8 mb-6 w-full max-w-sm flex flex-col gap-3">
+        <RippleButton
+          onClick={() => usePlayStore.getState().setReportScreenActive(true)}
+          className="w-full btn-base py-4 bg-[var(--color-surface-elevated)] border-2 border-[var(--color-accent)] text-[var(--color-accent)] uppercase tracking-wider text-sm shadow-md hover:bg-[var(--color-accent)] hover:text-white"
+        >
+          View My Performance Report
+          <span className="text-lg">📊</span>
+        </RippleButton>
+        <RippleButton
+          onClick={() => usePlayStore.getState().resetGame()}
+          className="w-full btn-secondary py-3.5 uppercase tracking-wider text-xs font-bold"
+        >
+          Exit to Home
+        </RippleButton>
+      </div>
     </div>
   );
 }

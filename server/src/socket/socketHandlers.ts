@@ -18,6 +18,8 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
   // ─── Internal helpers ────────────────────────────────────────────────────────
 
   async function revealCurrentQuestion(roomCode: string) {
+    const revealStartMs = performance.now();
+    console.log(`[TIMING] revealCurrentQuestion started`);
     const session = sessionManager.getSession(roomCode);
     if (!session || session.status !== "LIVE") return;
 
@@ -37,6 +39,19 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
 
     const answers = Array.from(session.currentQuestionAnswers.entries());
 
+    const dbStartMs = performance.now();
+    
+    const dbPromises: Promise<void>[] = [];
+    const participantStreaks = new Map<string, number>();
+
+    // First process non-answers to reset streaks correctly before doing db operations
+    for (const participant of session.participants.values()) {
+      if (!session.currentQuestionAnswers.has(participant.id)) {
+        const { currentStreak } = sessionManager.calculateScoreForAnswer(session, participant.id);
+        participantStreaks.set(participant.id, currentStreak);
+      }
+    }
+    
     for (const [participantId, answer] of answers) {
       if (optionCounts[answer.optionId] !== undefined) {
         optionCounts[answer.optionId]++;
@@ -44,61 +59,107 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
         optionCounts[answer.optionId] = 1;
       }
 
-      const { points, isCorrect } = sessionManager.calculateScoreForAnswer(session, participantId);
+      const { points, isCorrect, currentStreak } = sessionManager.calculateScoreForAnswer(session, participantId);
+      participantStreaks.set(participantId, currentStreak);
 
       // Update score in memory
       const participant = session.participants.get(participantId);
       if (participant) {
         participant.score += points;
 
-        // ─── PERSIST score to DB on every reveal ───────────────────────────
-        await prisma.participant.update({
-          where: { id: participantId },
-          data: { score: participant.score },
-        });
+        // ─── PERSIST to DB concurrently ───────────────────────────
+        const participantPromise = (async () => {
+          try {
+            const responseTimeMs = Math.max(0, answer.answeredAtMs - session.questionStartTimeMs);
+            
+            await Promise.all([
+              prisma.participant.update({
+                where: { id: participantId },
+                data: { score: participant.score },
+              }),
+              prisma.answer.create({
+                data: {
+                  participantId,
+                  questionId: question.id,
+                  optionId: answer.optionId,
+                  isCorrect,
+                  pointsAwarded: points,
+                  responseTimeMs,
+                },
+              })
+            ]);
+          } catch (err) {
+            console.error(`[DB ERROR] Failed to save answer/score for participant ${participantId}:`, err);
+          }
+        })();
+        
+        dbPromises.push(participantPromise);
       }
-
-      // Save answer to DB
-      await prisma.answer.create({
-        data: {
-          participantId,
-          questionId: question.id,
-          optionId: answer.optionId,
-          isCorrect,
-          pointsAwarded: points,
-        },
-      });
     }
+    
+    await Promise.all(dbPromises);
+    
+    const dbEndMs = performance.now();
+    console.log(`[TIMING] Batched database writes for ${answers.length} answers took ${(dbEndMs - dbStartMs).toFixed(2)}ms`);
 
     console.log(`Question revealed for room ${roomCode}. Correct option: ${correctOptionId}`);
 
-    const revealData = { questionId: question.id, correctOptionId, optionCounts };
+    const baseRevealData = { questionId: question.id, correctOptionId, optionCounts, explanation: question.explanation || undefined };
     session.hasRevealedCurrentQuestion = true;
-    session.lastRevealData = revealData;
+    session.lastRevealData = baseRevealData;
 
-    io.to(roomCode).emit("question:reveal", revealData);
+    const emitStartMs = performance.now();
+    if (session.hostSocketId) {
+      io.to(session.hostSocketId).emit("question:reveal", baseRevealData);
+    }
+    for (const participant of session.participants.values()) {
+      const streak = participantStreaks.get(participant.id) || 0;
+      io.to(participant.socketId).emit("question:reveal", {
+        ...baseRevealData,
+        currentStreak: streak
+      });
+    }
 
     const leaderboard = sessionManager.getLeaderboard(roomCode);
     io.to(roomCode).emit("leaderboard:update", leaderboard);
+    
+    console.log(`[TIMING] Emitted reveal payloads to clients in ${(performance.now() - emitStartMs).toFixed(2)}ms`);
+    console.log(`[TIMING] Total revealCurrentQuestion execution took ${(performance.now() - revealStartMs).toFixed(2)}ms`);
 
     // Auto-advance after 5 seconds with crash protection
     session.questionTimer = setTimeout(async () => {
       try {
         const currentSession = sessionManager.getSession(roomCode);
-        if (!currentSession || currentSession.status !== "LIVE") return;
+        if (!currentSession || currentSession.status === "ENDED" || currentSession.status !== "LIVE") return;
 
         currentSession.currentQuestionIndex++;
-        if (currentSession.currentQuestionIndex < currentSession.questions.length) {
-          broadcastCurrentQuestion(currentSession.roomCode);
-        } else {
+        if (currentSession.currentQuestionIndex >= currentSession.questions.length) {
+          const bonusPromises: Promise<void>[] = [];
+          for (const participant of currentSession.participants.values()) {
+            const bonus = sessionManager.calculateAccuracyBonus(currentSession, participant.id);
+            if (bonus > 0) {
+              participant.score += bonus;
+              participant.accuracyBonusApplied = bonus;
+              bonusPromises.push(
+                prisma.participant.update({
+                  where: { id: participant.id },
+                  data: { score: participant.score }
+                }).then()
+              );
+            }
+          }
+          await Promise.all(bonusPromises);
+
           currentSession.status = "ENDED";
           await prisma.session.update({
             where: { id: currentSession.sessionId },
             data: { status: "ENDED" },
           });
-          io.to(currentSession.roomCode).emit("session:ended", sessionManager.getLeaderboard(currentSession.roomCode));
+          io.to(currentSession.roomCode).emit("session:ended", { finalLeaderboard: sessionManager.getLeaderboard(currentSession.roomCode) });
           sessionManager.removeSession(currentSession.roomCode);
           console.log(`Session ${currentSession.roomCode} ended automatically.`);
+        } else {
+          broadcastCurrentQuestion(currentSession.roomCode);
         }
       } catch (err) {
         console.error(`[TIMER ERROR in revealCurrentQuestion auto-advance]:`, err);
@@ -348,7 +409,10 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
         }
 
         sessionManager.updateParticipantSocketId(payload.roomCode, payload.participantId, socket.id);
+        sessionManager.markParticipantReconnected(payload.roomCode, payload.participantId);
         socket.join(payload.roomCode);
+
+        io.to(payload.roomCode).emit("participant:statusChanged", { participantId: payload.participantId, status: "connected" });
 
         currentParticipantId = participant.id;
         currentRoomCode = payload.roomCode;
@@ -375,7 +439,10 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
           response.currentQuestion = sessionManager.getCurrentQuestionForRejoin(session);
           response.hasAnsweredCurrentQuestion = sessionManager.hasAnswered(payload.roomCode, payload.participantId);
         } else if (screenState === "REVEAL") {
-          response.revealData = sessionManager.getLastRevealData(payload.roomCode);
+          const baseReveal = sessionManager.getLastRevealData(payload.roomCode);
+          if (baseReveal) {
+            response.revealData = { ...baseReveal, currentStreak: participant.currentStreak };
+          }
           response.leaderboard = sessionManager.getLeaderboard(payload.roomCode);
         } else if (screenState === "ENDED") {
           response.leaderboard = sessionManager.getLeaderboard(payload.roomCode);
@@ -547,12 +614,13 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
       });
 
       console.log(`Session ${session.roomCode} ended by host.`);
-      io.to(session.roomCode).emit("session:ended", sessionManager.getLeaderboard(session.roomCode));
+      io.to(session.roomCode).emit("session:ended", { finalLeaderboard: sessionManager.getLeaderboard(session.roomCode) });
       sessionManager.removeSession(session.roomCode);
     });
 
     // ─── answer:submit ────────────────────────────────────────────────────────
     socket.on("answer:submit", (payload) => {
+      const startMs = performance.now();
       const session = sessionManager.getSessionById(payload.sessionId);
       if (session && session.status === "LIVE") {
         sessionManager.recordAnswer(session.roomCode, payload.participantId, payload.optionId);
@@ -560,50 +628,83 @@ export function registerSocketHandlers(io: Server<ClientToServerEvents, ServerTo
         const { answeredCount, totalParticipants } = sessionManager.getAnsweredCount(session.roomCode);
         io.to(session.roomCode).emit("answeredCount:update", { answeredCount, totalParticipants });
       }
+      const endMs = performance.now();
+      console.log(`[TIMING] 'answer:submit' processed in ${(endMs - startMs).toFixed(2)}ms`);
     });
 
     // ─── question:next ─────────────────────────────────────────────────────────
     socket.on("question:next", async (payload) => {
       const session = sessionManager.getSessionById(payload.sessionId);
-      if (!session || session.status !== "LIVE") return;
+      if (!session || session.status === "ENDED" || session.status !== "LIVE") return;
 
-      // If the question hasn't been revealed yet, just reveal it (Skip timer)
-      if (!session.hasRevealedCurrentQuestion) {
-        if (session.questionTimer) {
-          clearTimeout(session.questionTimer);
-          session.questionTimer = null;
-        }
-        await revealCurrentQuestion(session.roomCode);
-        return; // Don't advance to the next question yet!
-      }
-
-      // If it HAS been revealed, manual advance (Skip the 5s auto-advance timer)
+      // Always clear pending auto-advance timer FIRST to prevent race conditions
       if (session.questionTimer) {
         clearTimeout(session.questionTimer);
         session.questionTimer = null;
       }
 
+      // If the question hasn't been revealed yet, just reveal it
+      if (!session.hasRevealedCurrentQuestion) {
+        await revealCurrentQuestion(session.roomCode);
+        return; // Don't advance to the next question yet!
+      }
+
       session.currentQuestionIndex++;
-      if (session.currentQuestionIndex < session.questions.length) {
-        broadcastCurrentQuestion(session.roomCode);
-      } else {
+      if (session.currentQuestionIndex >= session.questions.length) {
+        const bonusPromises: Promise<void>[] = [];
+        for (const participant of session.participants.values()) {
+          const bonus = sessionManager.calculateAccuracyBonus(session, participant.id);
+          if (bonus > 0) {
+            participant.score += bonus;
+            participant.accuracyBonusApplied = bonus;
+            bonusPromises.push(
+              prisma.participant.update({
+                where: { id: participant.id },
+                data: { score: participant.score }
+              }).then()
+            );
+          }
+        }
+        await Promise.all(bonusPromises);
+
         session.status = "ENDED";
         await prisma.session.update({
           where: { id: payload.sessionId },
           data: { status: "ENDED" },
         });
-        io.to(session.roomCode).emit("session:ended", sessionManager.getLeaderboard(session.roomCode));
+        io.to(session.roomCode).emit("session:ended", { finalLeaderboard: sessionManager.getLeaderboard(session.roomCode) });
         sessionManager.removeSession(session.roomCode);
         console.log(`Session ${session.roomCode} ended automatically.`);
+      } else {
+        broadcastCurrentQuestion(session.roomCode);
       }
     });
 
     // ─── disconnect ────────────────────────────────────────────────────────────
     socket.on("disconnect", () => {
-      if (currentParticipantId && currentRoomCode) {
-        console.log(`Socket disconnected: ${socket.id} (Participant: ${currentParticipantId}, Room: ${currentRoomCode})`);
+      const match = sessionManager.findParticipantBySocketId(socket.id);
+      
+      if (match) {
+        const { session, participant } = match;
+        console.log(`Participant ${participant.name} (${participant.id}) disconnected. Starting grace period...`);
+        
+        sessionManager.markParticipantDisconnected(session.roomCode, participant.id);
+        io.to(session.roomCode).emit("participant:statusChanged", { participantId: participant.id, status: "reconnecting" });
+
+        participant.disconnectGraceTimer = setTimeout(() => {
+          if (participant.connectionStatus === "reconnecting") {
+            console.log(`Participant ${participant.name} grace period expired. Removing permanently.`);
+            sessionManager.removeParticipantPermanently(session.roomCode, participant.id);
+            io.to(session.roomCode).emit("participant:statusChanged", { participantId: participant.id, status: "left" });
+            io.to(session.roomCode).emit("room:participant-joined", sessionManager.getLeaderboard(session.roomCode));
+          }
+        }, sessionManager.DISCONNECT_GRACE_PERIOD_MS);
       } else {
-        console.log(`Socket disconnected: ${socket.id}`);
+        if (currentParticipantId && currentRoomCode) {
+          console.log(`Socket disconnected: ${socket.id} (Participant: ${currentParticipantId}, Room: ${currentRoomCode})`);
+        } else {
+          console.log(`Socket disconnected: ${socket.id}`);
+        }
       }
     });
   });

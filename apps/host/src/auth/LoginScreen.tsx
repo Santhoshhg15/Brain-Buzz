@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useAuthStore } from "./authStore";
 import { KeyRound, Mail, Loader2 } from "lucide-react";
+import { RippleButton } from "../components/RippleButton";
 
 export function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -79,10 +80,10 @@ export function LoginScreen() {
             </div>
           )}
 
-          <button
+          <RippleButton
             type="submit"
             disabled={loading || !email || !password}
-            className="w-full bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:bg-[var(--color-accent)]/50 text-white font-bold py-3 px-4 rounded-xl shadow-md shadow-[var(--color-accent)]/10 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all ease-[var(--ease-smooth)] duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed disabled:transform-none"
+            className="w-full btn-primary"
           >
             {loading ? (
               <>
@@ -92,7 +93,7 @@ export function LoginScreen() {
             ) : (
               <span>Log In</span>
             )}
-          </button>
+          </RippleButton>
         </form>
       </div>
     </div>

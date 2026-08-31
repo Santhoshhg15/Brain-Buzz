@@ -56,9 +56,15 @@ export function LobbyDisplayScreen() {
               {participants.map(p => (
                 <div 
                   key={p.id} 
-                  className="bg-[var(--color-surface-elevated)] border-2 border-[var(--color-border)] text-[var(--color-text-primary)] px-6 py-4 rounded-xl text-2xl lg:text-3xl font-heading font-bold shadow-md animate-[fadeScaleIn_250ms_var(--ease-spring)] transform transition hover:scale-105"
+                  className="flex items-center gap-3 bg-[var(--color-surface-elevated)] border-2 border-[var(--color-border)] text-[var(--color-text-primary)] px-6 py-4 rounded-xl shadow-md animate-[fadeScaleIn_250ms_var(--ease-spring)] transform transition hover:scale-105"
                 >
-                  {p.name}
+                  <span className="text-2xl lg:text-3xl font-heading font-bold">{p.name}</span>
+                  {p.connectionStatus === "reconnecting" && (
+                    <span className="text-sm lg:text-base text-[var(--color-text-secondary)] bg-[var(--color-bg)] px-3 py-1.5 rounded-full uppercase tracking-wider font-semibold animate-pulse flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[var(--color-warning)] inline-block"></span>
+                      reconnecting...
+                    </span>
+                  )}
                 </div>
               ))}
             </div>

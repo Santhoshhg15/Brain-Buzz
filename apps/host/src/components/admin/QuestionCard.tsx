@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAdminStore } from "../../store/adminStore";
+import { RippleButton } from "../RippleButton";
 import type { QuestionDetail } from "../../store/adminStore";
 import { QuestionForm } from "./QuestionForm";
 import type { QuestionFormData } from "./QuestionForm";
@@ -108,7 +109,8 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
     await updateQuestion(question.id, {
       text: data.text,
       durationSeconds: data.durationSeconds,
-      points: data.points
+      points: data.points,
+      explanation: data.explanation || null
     });
 
     // We update each option
@@ -140,6 +142,7 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
       text: question.text,
       durationSeconds: question.durationSeconds,
       points: question.points,
+      explanation: question.explanation,
       options: question.options.map(opt => ({
         text: opt.text,
         isCorrect: opt.isCorrect
@@ -228,6 +231,13 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
                   )}
                 </div>
               </div>
+              
+              {question.explanation && (
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-[var(--color-accent)]/10 text-[var(--color-accent)] rounded-md border border-[var(--color-accent)]/20" title="This question has an explanation">
+                  <span className="text-sm">📝</span>
+                  <span className="text-xs font-bold uppercase tracking-wider">Has explanation</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -236,31 +246,31 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
           <div className="flex flex-col gap-2 bg-[var(--color-error-bg)]/50 p-2 rounded-xl animate-[screenEnter_200ms_var(--ease-out-expo)] shrink-0 min-w-[200px]">
             <p className="text-sm font-bold text-[var(--color-error)] text-center">Delete Question?</p>
             <div className="flex gap-2">
-              <button 
+              <RippleButton 
                 onClick={handleDelete}
                 disabled={loading}
                 className="flex-1 bg-[var(--color-error)] text-white text-sm py-2 rounded-lg font-bold hover:bg-red-800 transition-colors disabled:opacity-50"
               >
                 Yes
-              </button>
-              <button 
+              </RippleButton>
+              <RippleButton 
                 onClick={() => { setIsDeleting(false); clearFormError(); }}
                 disabled={loading}
                 className="flex-1 bg-[var(--color-surface)] text-[var(--color-text-primary)] text-sm py-2 rounded-lg font-bold hover:bg-[var(--color-border)] transition-colors"
               >
                 Cancel
-              </button>
+              </RippleButton>
             </div>
           </div>
         ) : (
           <div className="flex gap-2 shrink-0">
-            <button 
+            <RippleButton 
               onClick={() => { setIsEditing(true); clearFormError(); }}
               className="px-4 py-2 bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-primary)] font-bold text-sm rounded-xl hover:bg-[var(--color-border)] transition-colors active:scale-95"
             >
               Edit
-            </button>
-            <button 
+            </RippleButton>
+            <RippleButton 
               onClick={() => setIsDeleting(true)}
               className="w-10 h-10 flex items-center justify-center bg-[var(--color-error-bg)] text-[var(--color-error)] rounded-xl hover:bg-[var(--color-error)] hover:text-white transition-all active:scale-95"
               title="Delete Question"
@@ -268,7 +278,7 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
-            </button>
+            </RippleButton>
           </div>
         )}
       </div>
